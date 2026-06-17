@@ -1,0 +1,44 @@
+<launch>
+    <node pkg="platoon_observer"
+          type="velocity_accel_observer.py"
+          name="velocity_accel_observer"
+          output="screen">
+
+        <!-- Topics -->
+        <param name="wheel_velocity_topic" value="/wheel_velocity"/>
+        <param name="imu_topic" value="/imu"/>
+        <param name="accel_cmd_topic" value="/accel_cmd"/>
+        <param name="output_topic" value="/state_estimate"/>
+
+        <!-- Sampling time -->
+        <param name="sample_time" value="0.1"/>
+
+        <!-- Discrete-time model matrices -->
+        <param name="Ad_11" value="1.0000"/>
+        <param name="Ad_12" value="0.0632"/>
+        <param name="Ad_21" value="0.0"/>
+        <param name="Ad_22" value="0.3679"/>
+
+        <param name="Bd_1" value="0.0368"/>
+        <param name="Bd_2" value="0.6321"/>
+
+        <!-- Observer gain -->
+        <param name="Ld_11" value="0.6321"/>
+        <param name="Ld_12" value="0.0632"/>
+        <param name="Ld_21" value="0.0"/>
+        <param name="Ld_22" value="0.2325"/>
+
+        <!-- Sensor conventions -->
+        <param name="velocity_sign" value="1.0"/>
+        <param name="accel_sign" value="1.0"/>
+        <param name="command_sign" value="1.0"/>
+
+        <param name="imu_accel_axis" value="x"/>
+        <param name="imu_accel_bias" value="0.0"/>
+
+        <!-- Initial state -->
+        <param name="initial_velocity" value="0.0"/>
+        <param name="initial_acceleration" value="0.0"/>
+
+    </node>
+</launch>
