@@ -1,42 +1,68 @@
 <launch>
+    <!-- Robot number -->
+    <arg name="car_number" default="3"/>
+
+    <!-- Input mode:
+         throttle_model = use teleop throttle and DART model to estimate acceleration
+         desired_acc    = use /desired_acc_<car_number>
+         acc_saturated  = use /acc_saturated_<car_number>
+    -->
+    <arg name="input_mode" default="throttle_model"/>
+
     <node pkg="platoon_observer"
           type="velocity_accel_observer.py"
-          name="velocity_accel_observer"
+          name="velocity_accel_observer_$(arg car_number)"
           output="screen">
 
-        <!-- Topics -->
-        <param name="wheel_velocity_topic" value="/wheel_velocity"/>
-        <param name="imu_topic" value="/imu"/>
-        <param name="accel_cmd_topic" value="/accel_cmd"/>
-        <param name="output_topic" value="/state_estimate"/>
+        <param name="car_number" value="$(arg car_number)"/>
 
-        <!-- Sampling time -->
-        <param name="sample_time" value="0.1"/>
+        <!-- Main robot data topic -->
+        <param name="combined_topic" value="/sensors_and_input_$(arg car_number)"/>
 
-        <!-- Discrete-time model matrices -->
-        <param name="Ad_11" value="1.0000"/>
-        <param name="Ad_12" value="0.0632"/>
-        <param name="Ad_21" value="0.0"/>
-        <param name="Ad_22" value="0.3679"/>
+        <!-- Optional acceleration-command topics for later -->
+        <param name="desired_acc_topic" value="/desired_acc_$(arg car_number)"/>
+        <param name="acc_saturated_topic" value="/acc_saturated_$(arg car_number)"/>
 
-        <param name="Bd_1" value="0.0368"/>
-        <param name="Bd_2" value="0.6321"/>
+        <!-- Output topics -->
+        <param name="state_estimate_topic" value="/state_estimate_$(arg car_number)"/>
+        <param name="observer_input_topic" value="/observer_input_acc_$(arg car_number)"/>
 
-        <!-- Observer gain -->
-        <param name="Ld_11" value="0.6321"/>
-        <param name="Ld_12" value="0.0632"/>
-        <param name="Ld_21" value="0.0"/>
-        <param name="Ld_22" value="0.2325"/>
+        <!-- Select input source -->
+        <param name="input_mode" value="$(arg input_mode)"/>
 
-        <!-- Sensor conventions -->
+        <!-- /sensors_and_input layout -->
+        <param name="velocity_index" value="6"/>
+        <param name="acceleration_index" value="3"/>
+        <param name="throttle_index" value="8"/>
+
+        <!-- Sign/bias tuning -->
         <param name="velocity_sign" value="1.0"/>
         <param name="accel_sign" value="1.0"/>
-        <param name="command_sign" value="1.0"/>
-
-        <param name="imu_accel_axis" value="x"/>
+        <param name="throttle_sign" value="1.0"/>
         <param name="imu_accel_bias" value="0.0"/>
 
-        <!-- Initial state -->
+        <!-- DART model -->
+        <param name="mass" value="1.67"/>
+        <param name="model_accel_scale" value="1.0"/>
+
+        <!-- Observer sample time -->
+        <param name="sample_time" value="0.1"/>
+
+        <!-- Discrete observer matrices -->
+        <param name="Ad_00" value="1.0000"/>
+        <param name="Ad_01" value="0.0632"/>
+        <param name="Ad_10" value="0.0000"/>
+        <param name="Ad_11" value="0.3679"/>
+
+        <param name="Bd_0" value="0.0368"/>
+        <param name="Bd_1" value="0.6321"/>
+
+        <param name="Ld_00" value="0.6321"/>
+        <param name="Ld_01" value="0.0632"/>
+        <param name="Ld_10" value="0.0000"/>
+        <param name="Ld_11" value="0.2325"/>
+
+        <!-- Initial estimate -->
         <param name="initial_velocity" value="0.0"/>
         <param name="initial_acceleration" value="0.0"/>
 
