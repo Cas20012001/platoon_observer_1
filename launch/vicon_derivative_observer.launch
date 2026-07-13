@@ -1,0 +1,59 @@
+<launch>
+    <arg name="car_number" default="3"/>
+
+    <arg name="vicon_topic" default="/vicon/jetracer$(arg car_number)"/>
+    <arg name="sensor_topic" default="/sensors_and_input_$(arg car_number)"/>
+
+    <arg name="state_estimate_topic" default="/vicon_state_estimate_$(arg car_number)"/>
+    <arg name="observer_input_acc_topic" default="/vicon_observer_input_acc_$(arg car_number)"/>
+
+    <arg name="vicon_velocity_meas_topic" default="/vicon_velocity_meas_$(arg car_number)"/>
+    <arg name="vicon_acceleration_meas_topic" default="/vicon_acceleration_meas_$(arg car_number)"/>
+
+    <arg name="control_rate" default="10.0"/>
+
+    <!-- Smaller values = smoother but more delay -->
+    <arg name="velocity_alpha" default="0.20"/>
+    <arg name="acceleration_alpha" default="0.08"/>
+
+    <!-- Observer gain -->
+    <arg name="L00" default="0.6321"/>
+    <arg name="L01" default="0.0632"/>
+    <arg name="L10" default="0.0"/>
+    <arg name="L11" default="0.2325"/>
+
+    <!-- Safety / outlier limits -->
+    <arg name="max_reasonable_speed" default="5.0"/>
+    <arg name="max_reasonable_acc" default="8.0"/>
+
+    <node
+        pkg="platoon_observer"
+        type="vicon_derivative_observer.py"
+        name="vicon_derivative_observer_$(arg car_number)"
+        output="screen">
+
+        <param name="car_number" value="$(arg car_number)"/>
+
+        <param name="vicon_topic" value="$(arg vicon_topic)"/>
+        <param name="sensor_topic" value="$(arg sensor_topic)"/>
+
+        <param name="state_estimate_topic" value="$(arg state_estimate_topic)"/>
+        <param name="observer_input_acc_topic" value="$(arg observer_input_acc_topic)"/>
+
+        <param name="vicon_velocity_meas_topic" value="$(arg vicon_velocity_meas_topic)"/>
+        <param name="vicon_acceleration_meas_topic" value="$(arg vicon_acceleration_meas_topic)"/>
+
+        <param name="control_rate" value="$(arg control_rate)"/>
+
+        <param name="velocity_alpha" value="$(arg velocity_alpha)"/>
+        <param name="acceleration_alpha" value="$(arg acceleration_alpha)"/>
+
+        <param name="L00" value="$(arg L00)"/>
+        <param name="L01" value="$(arg L01)"/>
+        <param name="L10" value="$(arg L10)"/>
+        <param name="L11" value="$(arg L11)"/>
+
+        <param name="max_reasonable_speed" value="$(arg max_reasonable_speed)"/>
+        <param name="max_reasonable_acc" value="$(arg max_reasonable_acc)"/>
+    </node>
+</launch>
