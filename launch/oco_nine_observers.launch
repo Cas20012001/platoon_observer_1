@@ -1,0 +1,123 @@
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- Measurement topics                                       -->
+    <!-- ========================================================= -->
+
+    <arg name="y1_topic"
+         default="/car2/oco/y1"/>
+
+    <arg name="y2_topic"
+         default="/car2/oco/y2"/>
+
+    <arg name="y6_topic"
+         default="/car2/oco/y6"/>
+
+    <arg name="y7_topic"
+         default="/car2/oco/y7"/>
+
+    <arg name="y8_topic"
+         default="/car2/oco/y8"/>
+
+    <arg name="y9_topic"
+         default="/car2/oco/y9"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Known model inputs                                       -->
+    <!-- ========================================================= -->
+
+    <arg name="leader_acc_topic"
+         default="/car1/acc_saturated_1"/>
+
+    <arg name="follower_acc_topic"
+         default="/car2/acc_saturated_1"/>
+
+
+    <!-- ========================================================= -->
+    <!-- OCO classification parameters                            -->
+    <!-- ========================================================= -->
+
+    <!-- Magnifier from the paper -->
+    <arg name="a_beta"
+         default="1000.0"/>
+
+    <!-- Current simulation assumes no process-noise bound -->
+    <arg name="Bw"
+         default="0.0"/>
+
+    <!-- Current simulation assumes no measurement-noise bound -->
+    <arg name="Bgamma"
+         default="0.0"/>
+
+    <!-- Numerical denominator safeguard -->
+    <arg name="beta_epsilon"
+         default="1e-12"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Optional debugging                                       -->
+    <!-- ========================================================= -->
+
+    <arg name="publish_individual_states"
+         default="false"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Nine-observer OCO node                                   -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="oco_nine_observers.py"
+          name="oco_nine_observers"
+          output="screen">
+
+        <param name="update_rate"
+               value="10.0"/>
+
+        <param name="y1_topic"
+               value="$(arg y1_topic)"/>
+
+        <param name="y2_topic"
+               value="$(arg y2_topic)"/>
+
+        <param name="y6_topic"
+               value="$(arg y6_topic)"/>
+
+        <param name="y7_topic"
+               value="$(arg y7_topic)"/>
+
+        <param name="y8_topic"
+               value="$(arg y8_topic)"/>
+
+        <param name="y9_topic"
+               value="$(arg y9_topic)"/>
+
+        <param name="leader_acc_topic"
+               value="$(arg leader_acc_topic)"/>
+
+        <param name="follower_acc_topic"
+               value="$(arg follower_acc_topic)"/>
+
+        <param name="a_beta"
+	       type="double"
+               value="$(arg a_beta)"/>
+
+        <param name="Bw"
+	       type="double"
+               value="$(arg Bw)"/>
+
+        <param name="Bgamma"
+	       type="double"
+               value="$(arg Bgamma)"/>
+
+        <param name="beta_epsilon"
+	       type="double"
+               value="$(arg beta_epsilon)"/>
+
+        <param name="publish_individual_states"
+               value="$(arg publish_individual_states)"/>
+
+    </node>
+
+</launch>

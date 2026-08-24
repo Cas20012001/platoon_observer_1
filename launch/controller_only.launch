@@ -1,0 +1,104 @@
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- Topics                                                    -->
+    <!-- ========================================================= -->
+
+    <arg name="state_topic"
+         default="/car2/state_estimate_1"/>
+
+    <arg name="leader_acc_topic"
+         default="/car1/acc_saturated_1"/>
+
+    <arg name="follower_acc_topic"
+         default="/car2/acc_saturated_1"/>
+
+    <arg name="desired_acc_topic"
+         default="/car2/desired_acc_1"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Model parameters                                          -->
+    <!-- ========================================================= -->
+
+    <arg name="Ts" default="0.1"/>
+    <arg name="h" default="0.5"/>
+    <arg name="tau" default="0.1"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Controller gains                                          -->
+    <!-- ========================================================= -->
+
+    <arg name="kp" default="0.4"/>
+    <arg name="kd" default="0.8"/>
+    <arg name="kdd" default="0.1"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Acceleration limits                                       -->
+    <!-- ========================================================= -->
+
+    <arg name="min_acc" default="-0.5"/>
+    <arg name="max_acc" default="0.5"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Enable / disable controller                               -->
+    <!-- ========================================================= -->
+
+    <arg name="controller_enabled"
+         default="false"/>
+
+
+    <!-- ========================================================= -->
+    <!-- CACC controller                                           -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="cacc_controller.py"
+          name="cacc_controller_2"
+          output="screen">
+
+        <param name="state_topic"
+               value="$(arg state_topic)"/>
+
+        <param name="leader_acc_topic"
+               value="$(arg leader_acc_topic)"/>
+
+        <param name="follower_acc_topic"
+               value="$(arg follower_acc_topic)"/>
+
+        <param name="desired_acc_topic"
+               value="$(arg desired_acc_topic)"/>
+
+        <param name="Ts"
+               value="$(arg Ts)"/>
+
+        <param name="h"
+               value="$(arg h)"/>
+
+        <param name="tau"
+               value="$(arg tau)"/>
+
+        <param name="kp"
+               value="$(arg kp)"/>
+
+        <param name="kd"
+               value="$(arg kd)"/>
+
+        <param name="kdd"
+               value="$(arg kdd)"/>
+
+        <param name="min_acc"
+               value="$(arg min_acc)"/>
+
+        <param name="max_acc"
+               value="$(arg max_acc)"/>
+
+        <param name="enabled"
+               value="$(arg controller_enabled)"/>
+
+    </node>
+
+</launch>

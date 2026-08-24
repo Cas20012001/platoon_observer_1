@@ -1,0 +1,97 @@
+<launch>
+
+    <arg name="spacing_topic"
+         default="/car2/spacing_error_meas_1"/>
+
+    <arg name="velocity_topic"
+         default="/car2/vx_1"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Attack configuration                                      -->
+    <!-- ========================================================= -->
+
+    <arg name="attack_enabled"
+         default="false"/>
+
+    <arg name="attack_type"
+         default="none"/>
+
+    <!--
+        Example:
+        [1, 2]
+        [6, 7]
+        [8, 9]
+    -->
+    <arg name="attack_channels"
+         default="[]"/>
+
+    <arg name="step_amplitude"
+         default="0.0"/>
+
+    <arg name="white_noise_std"
+         default="0.0"/>
+
+    <arg name="attack_start"
+         default="0.0"/>
+
+    <arg name="attack_stop"
+         default="-1.0"/>
+
+    <arg name="switching_period"
+         default="4.0"/>
+
+    <arg name="switching_on_time"
+         default="2.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- OCO measurement generator                                 -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="oco_measurement_generator.py"
+          name="oco_measurement_generator"
+          output="screen">
+
+        <param name="spacing_topic"
+               value="$(arg spacing_topic)"/>
+
+        <param name="velocity_topic"
+               value="$(arg velocity_topic)"/>
+
+        <param name="publish_rate"
+               value="10.0"/>
+
+        <param name="attack_enabled"
+               value="$(arg attack_enabled)"/>
+
+        <param name="attack_type"
+               value="$(arg attack_type)"/>
+
+        <rosparam param="attack_channels"
+                  subst_value="true">
+            $(arg attack_channels)
+        </rosparam>
+
+        <param name="step_amplitude"
+               value="$(arg step_amplitude)"/>
+
+        <param name="white_noise_std"
+               value="$(arg white_noise_std)"/>
+
+        <param name="attack_start"
+               value="$(arg attack_start)"/>
+
+        <param name="attack_stop"
+               value="$(arg attack_stop)"/>
+
+        <param name="switching_period"
+               value="$(arg switching_period)"/>
+
+        <param name="switching_on_time"
+               value="$(arg switching_on_time)"/>
+
+    </node>
+
+</launch>

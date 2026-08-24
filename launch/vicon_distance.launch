@@ -1,0 +1,43 @@
+<launch>
+    <arg name="leader_vicon_topic"
+         default="/vicon/jetracer1"/>
+
+    <arg name="follower_vicon_topic"
+         default="/vicon/jetracer2"/>
+
+    <arg name="follower_velocity_topic"
+         default="/vicon_velocity_meas_2"/>
+
+    <arg name="distance_topic"
+         default="/distance_meas_2"/>
+
+    <arg name="error_topic"
+         default="/spacing_error_meas_2"/>
+
+    <arg name="s" default="1.0"/>
+    <arg name="h" default="0.5"/>
+
+    <node pkg="platoon_observer"
+          type="vicon_distance.py"
+          name="vicon_distance"
+          output="screen">
+
+        <param name="leader_vicon_topic"
+               value="$(arg leader_vicon_topic)"/>
+
+        <param name="follower_vicon_topic"
+               value="$(arg follower_vicon_topic)"/>
+
+        <param name="follower_velocity_topic"
+               value="$(arg follower_velocity_topic)"/>
+
+        <param name="distance_topic"
+               value="$(arg distance_topic)"/>
+
+        <param name="error_topic"
+               value="$(arg error_topic)"/>
+
+        <param name="s" value="$(arg s)"/>
+        <param name="h" value="$(arg h)"/>
+    </node>
+</launch>

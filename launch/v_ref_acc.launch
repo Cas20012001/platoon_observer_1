@@ -1,0 +1,47 @@
+<launch>
+    <arg name="car_number" default="1"/>
+    <arg name="v_ref" default="1.2"/>
+    <arg name="namespace" default="car1"/>
+
+    <arg name="sensors_topic"
+         default="/$(arg namespace)/sensors_and_input_$(arg car_number)"/>
+
+    <arg name="v_ref_topic"
+         default="/$(arg namespace)/v_ref_$(arg car_number)"/>
+
+    <arg name="desired_acc_topic"
+         default="/$(arg namespace)/desired_acc_$(arg car_number)"/>
+
+    <!-- Publish constant leader velocity reference -->
+    <!--
+    <node pkg="rostopic"
+          type="rostopic"
+          name="leader_v_ref"
+          output="screen"
+          args="pub -r 10 $(arg v_ref_topic) std_msgs/Float32 'data: $(arg v_ref)'"/>
+    -->
+
+    <!-- Convert velocity reference to desired acceleration -->
+    <node pkg="platoon_observer"
+          type="v_tracking_controller.py"
+          name="leader_velocity_controller_$(arg car_number)"
+          output="screen">
+
+        <param name="car_number" value="$(arg car_number)"/>
+
+        <param name="kp" value="1.0"/>
+        <param name="min_acc" value="-1.0"/>
+        <param name="max_acc" value="1.0"/>
+        <param name="control_rate" value="10.0"/>
+        <param name="velocity_index" value="6"/>
+
+        <param name="sensors_topic"
+               value="$(arg sensors_topic)"/>
+
+        <param name="v_ref_topic"
+               value="$(arg v_ref_topic)"/>
+
+        <param name="desired_acc_topic"
+               value="$(arg desired_acc_topic)"/>
+    </node>
+</launch>

@@ -1,0 +1,63 @@
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- 1. Two-car DART simulator                                 -->
+    <!-- ========================================================= -->
+
+    <include file="$(find dart_simulator_pkg)/launch/two_cars_sim.launch"/>
+
+
+    <!-- ========================================================= -->
+    <!-- 2. Vicon velocity, distance and circle steering nodes      -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/two_car_measurements.launch"/>
+
+
+    <!-- ========================================================= -->
+    <!-- 3. Leader velocity-reference controller                    -->
+    <!--                                                            -->
+    <!-- /car1/v_ref_1                                               -->
+    <!--       -> /car1/desired_acc_1                                -->
+    <!--                                                            -->
+    <!-- The velocity reference itself can be published separately. -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/v_ref_acc.launch">
+
+        <arg name="car_number" value="1"/>
+        <arg name="namespace" value="car1"/>
+
+    </include>
+
+
+    <!-- ========================================================= -->
+    <!-- 4. Follower observer and CACC controller                    -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/single_observer_controller.launch">
+
+        <arg name="error_topic"
+             value="/car2/spacing_error_meas_1"/>
+
+        <arg name="velocity_topic"
+             value="/car2/vicon_velocity_meas_1"/>
+
+        <arg name="leader_acc_topic"
+             value="/car1/acc_saturated_1"/>
+
+        <arg name="follower_acc_topic"
+             value="/car2/acc_saturated_1"/>
+
+        <arg name="state_topic"
+             value="/car2/state_estimate_1"/>
+
+        <arg name="desired_acc_topic"
+             value="/car2/desired_acc_1"/>
+
+        <arg name="controller_enabled"
+             value="true"/>
+
+    </include>
+
+</launch>

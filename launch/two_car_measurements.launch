@@ -1,0 +1,29 @@
+<launch>
+    <!-- Starts both simulated cars and both circle followers -->
+    <include file="$(find platoon_lateral_controller)/launch/two_sim_circle_followers.launch"/>
+
+    <!-- Vicon-derived velocity for the follower -->
+    <include file="$(find platoon_observer)/launch/vicon_velocity.launch">
+        <arg name="car_number" value="2"/>
+        <arg name="vicon_topic" value="/car2/vicon/jetracer1"/>
+        <arg name="velocity_topic" value="/car2/vicon_velocity_meas_1"/>
+    </include>
+
+    <!-- Distance and spacing error between leader and follower -->
+    <include file="$(find platoon_observer)/launch/vicon_distance.launch">
+        <arg name="leader_vicon_topic" value="/car1/vicon/jetracer1"/>
+        <arg name="follower_vicon_topic" value="/car2/vicon/jetracer1"/>
+
+        <arg name="follower_velocity_topic"
+             value="/car2/vicon_velocity_meas_1"/>
+
+        <arg name="distance_topic"
+             value="/car2/distance_meas_1"/>
+
+        <arg name="error_topic"
+             value="/car2/spacing_error_meas_1"/>
+
+        <arg name="s" value="1.0"/>
+        <arg name="h" value="0.5"/>
+    </include>
+</launch>

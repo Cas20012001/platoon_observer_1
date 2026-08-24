@@ -1,0 +1,26 @@
+<launch>
+    <arg name="car_number" default="2"/>
+
+    <arg name="vicon_topic"
+         default="/vicon/jetracer$(arg car_number)"/>
+
+    <arg name="velocity_topic"
+         default="/vicon_velocity_meas_$(arg car_number)"/>
+
+    <arg name="velocity_alpha" default="0.2"/>
+
+    <node pkg="platoon_observer"
+          type="vicon_velocity.py"
+          name="vicon_velocity_$(arg car_number)"
+          output="screen">
+
+        <param name="vicon_topic"
+               value="$(arg vicon_topic)"/>
+
+        <param name="velocity_topic"
+               value="$(arg velocity_topic)"/>
+
+        <param name="velocity_alpha"
+               value="$(arg velocity_alpha)"/>
+    </node>
+</launch>
