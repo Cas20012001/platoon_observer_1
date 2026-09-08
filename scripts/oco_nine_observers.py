@@ -14,60 +14,55 @@ class OCONineObservers:
         # General parameters
         # ============================================================
 
-        self.update_rate = rospy.get_param("~update_rate", 10.0)
+        self.update_rate = float(
+            rospy.get_param("~update_rate", 10.0)
+        )
 
         # Optional debugging:
-        # Keep individual state publishing available, but disabled.
+        # publish all 9 individual observer states if desired.
         self.publish_individual_states = rospy.get_param(
             "~publish_individual_states",
             False
         )
 
         # ============================================================
+        # Final selected state-estimate topic
+        #
+        # Keep the same topic that the existing CACC controller
+        # already uses.
+        # ============================================================
+
+        self.state_topic = rospy.get_param(
+            "~state_topic",
+            "/car2/state_estimate_1"
+        )
+
+        # ============================================================
         # OCO classification parameters
         # ============================================================
 
-        # Number of observers
         self.N = 9
 
-        # Paper:
-        #
-        # beta_bar_eta = 1 - 1/N
-        #
+        # beta_bar_eta = 1 - 1/N = 8/9
         self.beta_bar_eta = 1.0 - 1.0 / self.N
 
-        # Magnifier used by the paper
+        # Paper parameter
         self.a_beta = float(
-	    rospy.get_param(
-            	"~a_beta",
-            	1000.0
-            )
-	)
+            rospy.get_param("~a_beta", 1000.0)
+        )
 
-        # Noise bounds.
-        #
-        # For the current clean simulation we use zero.
-        #
+        # Noise bounds
         self.Bw = float(
-	    rospy.get_param(
-            	"~Bw",
-            	0.0
-	    )
+            rospy.get_param("~Bw", 0.0)
         )
 
         self.Bgamma = float(
-	    rospy.get_param(
-            	"~Bgamma",
-            	0.0
-	    )
+            rospy.get_param("~Bgamma", 0.0)
         )
 
         # Numerical protection against division by zero
         self.beta_epsilon = float(
-	    rospy.get_param(
-            	"~beta_epsilon",
-            	1e-12
-	    )
+            rospy.get_param("~beta_epsilon", 1e-12)
         )
 
         # ============================================================
@@ -84,7 +79,7 @@ class OCONineObservers:
         }
 
         # ============================================================
-        # Known model input topics
+        # Known model-input topics
         # ============================================================
 
         self.leader_acc_topic = rospy.get_param(
@@ -138,6 +133,28 @@ class OCONineObservers:
             -0.036787944117,
              0.0
         ], dtype=float)
+
+        # ============================================================
+        # Coupling matrix D
+        #
+        # Unit/integrating state directions:
+        #
+        # e
+        # v2
+        # delta_v
+        #
+        # Therefore:
+        #
+        # D = diag(1, 1, 0, 1, 0)
+        # ============================================================
+
+        self.D = np.diag([
+            1.0,
+            1.0,
+            0.0,
+            1.0,
+            0.0
+        ])
 
         # ============================================================
         # Measurement matrices
@@ -208,7 +225,15 @@ class OCONineObservers:
         }
 
         # ============================================================
-        # Nine vehicle observer states
+        # Nine observer states
+        #
+        # xhat[j] =
+        #
+        # [e_hat,
+        #  v2_hat,
+        #  a2_hat,
+        #  delta_v_hat,
+        #  a1_hat]
         # ============================================================
 
         self.xhat = {}
@@ -220,15 +245,15 @@ class OCONineObservers:
         # Residual-reference model
         #
         # xr_j(k+1) =
-        # Ar*xr_j(k) + Br*||r_j(k)||_2
+        #
+        # Ar*xr_j(k)
+        # + Br*||r_j(k)||_2
         #
         # eta_j(k) = xr_j,1(k)
         #
         # Kr = 2
         # Cr = 3
-        # Ts = 0.1
-        #
-        # Exact ZOH discretization
+        # Ts = 0.1 s
         # ============================================================
 
         self.Ar = np.array([
@@ -241,7 +266,6 @@ class OCONineObservers:
             0.172213329915
         ], dtype=float)
 
-        # Nine residual-reference states
         self.xr = {}
 
         for j in range(1, 10):
@@ -251,7 +275,10 @@ class OCONineObservers:
         # Eta and beta storage
         # ============================================================
 
-        self.eta = np.zeros(9, dtype=float)
+        self.eta = np.zeros(
+            9,
+            dtype=float
+        )
 
         self.beta_eta = np.full(
             9,
@@ -259,8 +286,6 @@ class OCONineObservers:
             dtype=float
         )
 
-        # Paper specifies beta_j(0) in (0,1).
-        # Clean/equal case gives beta = 0.5.
         self.beta = np.full(
             9,
             0.5,
@@ -268,7 +293,22 @@ class OCONineObservers:
         )
 
         # ============================================================
-        # Latest measurements and inputs
+        # Currently selected estimate
+        # ============================================================
+
+        # Python index:
+        # 0 = J1
+        # ...
+        # 8 = J9
+        self.selected_index = 0
+
+        self.xbar = np.zeros(
+            5,
+            dtype=float
+        )
+
+        # ============================================================
+        # Latest measurements / inputs
         # ============================================================
 
         self.y = {
@@ -281,7 +321,9 @@ class OCONineObservers:
         }
 
         self.u1 = None
-        self.u2 = None
+        # Start with zero follower input so the observer/controller loop
+        # can initialise before the first acc_saturated message arrives.
+        self.u2 = 0.0
 
         # ============================================================
         # Subscribers
@@ -312,7 +354,43 @@ class OCONineObservers:
         )
 
         # ============================================================
-        # Optional individual observer state publishers
+        # FINAL selected state publisher
+        #
+        # This is what the existing controller receives.
+        # ============================================================
+
+        self.state_publisher = rospy.Publisher(
+            self.state_topic,
+            Float32MultiArray,
+            queue_size=10
+        )
+
+        # ============================================================
+        # Eta publisher
+        #
+        # [eta1, ..., eta9]
+        # ============================================================
+
+        self.eta_publisher = rospy.Publisher(
+            "/car2/oco/eta",
+            Float32MultiArray,
+            queue_size=10
+        )
+
+        # ============================================================
+        # Beta publisher
+        #
+        # [beta1, ..., beta9]
+        # ============================================================
+
+        self.beta_publisher = rospy.Publisher(
+            "/car2/oco/beta",
+            Float32MultiArray,
+            queue_size=10
+        )
+
+        # ============================================================
+        # Optional individual observer publishers
         # ============================================================
 
         self.state_publishers = {}
@@ -334,30 +412,6 @@ class OCONineObservers:
                 )
 
         # ============================================================
-        # Eta publisher
-        #
-        # [eta1, eta2, ..., eta9]
-        # ============================================================
-
-        self.eta_publisher = rospy.Publisher(
-            "/car2/oco/eta",
-            Float32MultiArray,
-            queue_size=10
-        )
-
-        # ============================================================
-        # Beta publisher
-        #
-        # [beta1, beta2, ..., beta9]
-        # ============================================================
-
-        self.beta_publisher = rospy.Publisher(
-            "/car2/oco/beta",
-            Float32MultiArray,
-            queue_size=10
-        )
-
-        # ============================================================
         # Timer
         # ============================================================
 
@@ -367,18 +421,16 @@ class OCONineObservers:
         )
 
         # ============================================================
-        # Startup logging
+        # Startup information
         # ============================================================
 
         rospy.loginfo("========================================")
-        rospy.loginfo("Nine OCO observers started")
-        rospy.loginfo("Residual reference models enabled")
-        rospy.loginfo("Classification beta enabled")
+        rospy.loginfo("FULL OCO observer framework started")
         rospy.loginfo("========================================")
 
         rospy.loginfo(
-            "beta_bar_eta = %.9f",
-            self.beta_bar_eta
+            "Final state output: %s",
+            self.state_topic
         )
 
         rospy.loginfo(
@@ -387,8 +439,17 @@ class OCONineObservers:
         )
 
         rospy.loginfo(
-            "Bw = %.6g, Bgamma = %.6g",
-            self.Bw,
+            "beta_bar_eta = %.9f",
+            self.beta_bar_eta
+        )
+
+        rospy.loginfo(
+            "Bw = %.6g",
+            self.Bw
+        )
+
+        rospy.loginfo(
+            "Bgamma = %.6g",
             self.Bgamma
         )
 
@@ -422,9 +483,6 @@ class OCONineObservers:
         if self.u1 is None:
             return False
 
-        if self.u2 is None:
-            return False
-
         for channel in [1, 2, 6, 7, 8, 9]:
 
             if self.y[channel] is None:
@@ -433,20 +491,18 @@ class OCONineObservers:
         return True
 
     # ================================================================
-    # Calculate classification ratios
+    # Classification calculation
     # ================================================================
 
     def calculate_beta(self):
 
         # ------------------------------------------------------------
-        # Paper:
-        #
         # beta_eta_j =
         #
         # 1 -
         #
-        # (eta_j + Bw + Bgamma)
-        # -----------------------------------
+        # eta_j + Bw + Bgamma
+        # ---------------------------
         # sum_s(eta_s + Bw + Bgamma)
         #
         # ------------------------------------------------------------
@@ -462,21 +518,14 @@ class OCONineObservers:
         )
 
         # ------------------------------------------------------------
-        # Startup / perfectly clean numerical safeguard
-        #
-        # If all eta values and both noise bounds are zero,
-        # denominator = 0.
-        #
-        # In the equal clean condition:
-        #
-        # beta_eta = 1 - 1/N = 8/9
-        #
-        # which gives beta = 0.5.
+        # Perfectly clean / startup safeguard
         # ------------------------------------------------------------
 
         if denominator <= self.beta_epsilon:
 
-            self.beta_eta[:] = self.beta_bar_eta
+            self.beta_eta[:] = (
+                self.beta_bar_eta
+            )
 
         else:
 
@@ -486,17 +535,16 @@ class OCONineObservers:
             )
 
         # ------------------------------------------------------------
-        # Paper's nonlinear activation:
+        # Final classification ratio
         #
         # beta_j =
         #
         # 1/pi *
         # atan(
-        #     a_beta *
-        #     (beta_eta_j - beta_bar_eta)
+        #   a_beta *
+        #   (beta_eta_j - beta_bar_eta)
         # )
         # + 0.5
-        #
         # ------------------------------------------------------------
 
         self.beta = (
@@ -512,7 +560,7 @@ class OCONineObservers:
         )
 
     # ================================================================
-    # Main update
+    # Main OCO update
     # ================================================================
 
     def update_callback(self, event):
@@ -523,20 +571,19 @@ class OCONineObservers:
         # ============================================================
         # STEP 1
         #
-        # Current eta values are taken from the CURRENT
-        # residual-reference model states xr_j(k).
-        #
-        # These eta values are then used to calculate beta(k).
+        # Obtain eta_j(k) from current residual-reference states.
         # ============================================================
 
         for j in range(1, 10):
 
-            self.eta[j - 1] = self.xr[j][0]
+            self.eta[j - 1] = (
+                self.xr[j][0]
+            )
 
         # ============================================================
         # STEP 2
         #
-        # Calculate beta_eta(k) and beta(k)
+        # Calculate all classification ratios beta_j(k).
         # ============================================================
 
         self.calculate_beta()
@@ -544,30 +591,83 @@ class OCONineObservers:
         # ============================================================
         # STEP 3
         #
-        # Calculate residuals and update all nine vehicle observers.
+        # Select observer with maximum beta.
+        #
+        # np.argmax returns the FIRST occurrence of the maximum.
+        #
+        # Therefore, when several beta values are equal, the observer
+        # with the lowest index is selected, matching the paper.
+        # ============================================================
+
+        self.selected_index = int(
+            np.argmax(self.beta)
+        )
+
+        selected_observer_number = (
+            self.selected_index + 1
+        )
+
+        # ============================================================
+        # STEP 4
+        #
+        # xbar(k) = xhat_J*(k)
         #
         # IMPORTANT:
-        # These are STILL INDEPENDENT observers.
+        # Make a copy. We want the current selected state xbar(k)
+        # to remain fixed while all nine observers are updated.
+        # ============================================================
+
+        self.xbar = self.xhat[
+            selected_observer_number
+        ].copy()
+
+        # ============================================================
+        # STEP 5
         #
-        # The coupling term is NOT added yet.
+        # Calculate residuals and update ALL NINE observers with
+        # the full OCO equation:
+        #
+        # xhat_j(k+1) =
+        #
+        # A*xhat_j(k)
+        # + B1*u1(k)
+        # + B2*u2(k)
+        # + L_j*r_j(k)
+        #
+        # + (1-beta_j(k))
+        #   * D
+        #   * (xbar(k)-xhat_j(k))
+        #
         # ============================================================
 
         for j in range(1, 10):
 
-            channels, C, L = self.observer_config[j]
+            channels, C, L = (
+                self.observer_config[j]
+            )
 
-            # Measurement vector
+            # --------------------------------------------------------
+            # Current measurement vector
+            # --------------------------------------------------------
+
             yj = np.array([
                 self.y[channels[0]],
                 self.y[channels[1]]
             ], dtype=float)
 
-            xhat_current = self.xhat[j]
+            # --------------------------------------------------------
+            # Current observer state
+            # --------------------------------------------------------
+
+            xhat_current = (
+                self.xhat[j].copy()
+            )
 
             # --------------------------------------------------------
             # Residual
             #
-            # r_j(k) = y_j(k) - C_j*xhat_j(k)
+            # r_j(k) =
+            # y_j(k) - C_j*xhat_j(k)
             # --------------------------------------------------------
 
             residual = (
@@ -576,102 +676,156 @@ class OCONineObservers:
             )
 
             # --------------------------------------------------------
-            # Independent observer update
+            # Normal Luenberger correction
+            # --------------------------------------------------------
+
+            observer_correction = (
+                L.dot(residual)
+            )
+
+            # --------------------------------------------------------
+            # OCO coupling correction
             #
-            # xhat_j(k+1) =
-            #
-            # A*xhat_j(k)
-            # + B1*u1(k)
-            # + B2*u2(k)
-            # + L_j*r_j(k)
+            # (1-beta_j)
+            # * D
+            # * (xbar-xhat_j)
+            # --------------------------------------------------------
+
+            coupling_correction = (
+                (1.0 - self.beta[j - 1])
+                * self.D.dot(
+                    self.xbar
+                    - xhat_current
+                )
+            )
+
+            # --------------------------------------------------------
+            # FULL OCO observer update
             # --------------------------------------------------------
 
             xhat_next = (
                 self.A.dot(xhat_current)
                 + self.B1 * self.u1
                 + self.B2 * self.u2
-                + L.dot(residual)
+                + observer_correction
+                + coupling_correction
             )
 
             self.xhat[j] = xhat_next
 
             # --------------------------------------------------------
-            # Residual magnitude
+            # Residual magnitude for residual-reference model
             #
-            # ||r_j(k)||_2
+            # Our implementation uses Euclidean norm:
+            #
+            # ||r_j||_2
             # --------------------------------------------------------
 
-            residual_magnitude = np.linalg.norm(
-                residual,
-                ord=2
+            residual_magnitude = (
+                np.linalg.norm(
+                    residual,
+                    ord=2
+                )
             )
 
             # --------------------------------------------------------
             # Update residual-reference model:
             #
             # xr_j(k+1) =
-            #
             # Ar*xr_j(k)
             # + Br*||r_j(k)||_2
             # --------------------------------------------------------
 
-            xr_next = (
-                self.Ar.dot(self.xr[j])
-                + self.Br * residual_magnitude
+            self.xr[j] = (
+                self.Ar.dot(
+                    self.xr[j]
+                )
+                + self.Br
+                * residual_magnitude
             )
 
-            self.xr[j] = xr_next
+        # ============================================================
+        # STEP 6
+        #
+        # Publish xbar(k).
+        #
+        # This is deliberately the state selected BEFORE the
+        # k -> k+1 observer update.
+        #
+        # It is therefore the actual xbar(k) used in this OCO
+        # iteration.
+        # ============================================================
+
+        state_msg = Float32MultiArray()
+
+        state_msg.data = (
+            self.xbar.tolist()
+        )
+
+        self.state_publisher.publish(
+            state_msg
+        )
 
         # ============================================================
-        # STEP 4
+        # STEP 7
         #
         # Publish eta(k)
         # ============================================================
 
         eta_msg = Float32MultiArray()
 
-        eta_msg.data = self.eta.tolist()
+        eta_msg.data = (
+            self.eta.tolist()
+        )
 
         self.eta_publisher.publish(
             eta_msg
         )
 
         # ============================================================
-        # STEP 5
+        # STEP 8
         #
         # Publish beta(k)
         # ============================================================
 
         beta_msg = Float32MultiArray()
 
-        beta_msg.data = self.beta.tolist()
+        beta_msg.data = (
+            self.beta.tolist()
+        )
 
         self.beta_publisher.publish(
             beta_msg
         )
 
         # ============================================================
-        # OPTIONAL DEBUGGING
+        # OPTIONAL DEBUG
         #
-        # Publish individual observer estimates.
+        # Publish all nine UPDATED observer states.
         # ============================================================
 
         if self.publish_individual_states:
 
             for j in range(1, 10):
 
-                state_msg = Float32MultiArray()
+                state_debug_msg = (
+                    Float32MultiArray()
+                )
 
-                state_msg.data = self.xhat[j].tolist()
+                state_debug_msg.data = (
+                    self.xhat[j].tolist()
+                )
 
                 self.state_publishers[j].publish(
-                    state_msg
+                    state_debug_msg
                 )
 
 
 if __name__ == "__main__":
 
-    rospy.init_node("oco_nine_observers")
+    rospy.init_node(
+        "oco_nine_observers"
+    )
 
     node = OCONineObservers()
 

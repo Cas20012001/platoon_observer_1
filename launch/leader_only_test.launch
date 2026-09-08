@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- 1. Single DART simulator instance: leader car             -->
+    <!-- ========================================================= -->
+
+    <group ns="car1">
+
+        <env name="car_number" value="1"/>
+        <env name="car_number_str" value="_1"/>
+
+        <include file="$(find dart_simulator_pkg)/launchfiles/dart_simulator_no_visuals.launch"/>
+
+    </group>
+
+
+    <!-- ========================================================= -->
+    <!-- 2. Acceleration -> throttle conversion                    -->
+    <!-- ========================================================= -->
+
+    <group ns="car1">
+
+        <node pkg="platooning_pkg"
+              type="acc_2_throttle.py"
+              name="acc_2_throttle"
+              output="screen">
+
+            <env name="car_number" value="1"/>
+
+        </node>
+
+
+        <!-- Safety enable -->
+
+        <node pkg="rostopic"
+              type="rostopic"
+              name="safety_enable"
+              args="pub safety_value std_msgs/Float32 'data: 1.0' -r 10"/>
+
+    </group>
+
+
+    <!-- ========================================================= -->
+    <!-- 3. Circle lateral controller for leader only              -->
+    <!-- ========================================================= -->
+
+    <group ns="circle_follower_car1">
+
+        <include file="$(find platoon_lateral_controller)/launch/circle_lateral_controller.launch">
+
+            <arg name="car_number" value="1"/>
+
+            <arg name="vicon_topic"
+                 value="/car1/vicon/jetracer1"/>
+
+            <arg name="sensor_topic"
+                 value="/car1/sensors_and_input_1"/>
+
+            <arg name="steering_topic"
+                 value="/car1/steering_1"/>
+
+            <arg name="center_x" value="0.0"/>
+            <arg name="center_y" value="0.0"/>
+            <arg name="radius" value="5.0"/>
+            <arg name="lookahead" value="0.6"/>
+            <arg name="direction" value="1"/>
+
+        </include>
+
+    </group>
+
+
+    <!-- ========================================================= -->
+    <!-- 4. Leader velocity-reference controller                   -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/v_ref_acc.launch">
+
+        <arg name="car_number" value="1"/>
+        <arg name="namespace" value="car1"/>
+
+    </include>
+
+</launch>

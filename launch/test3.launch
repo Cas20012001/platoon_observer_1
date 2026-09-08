@@ -1,0 +1,216 @@
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- Attack configuration -->
+    <!-- ========================================================= -->
+
+    <arg name="attack_enabled" default="false"/>
+
+    <arg name="attack_type" default="none"/>
+
+    <arg name="attack_channels" default="[]"/>
+
+    <arg name="step_amplitude" default="0.5"/>
+
+    <arg name="white_noise_std" default="0.2"/>
+
+    <arg name="attack_start" default="10.0"/>
+
+    <arg name="attack_stop" default="-1.0"/>
+
+    <arg name="switching_period" default="10.0"/>
+
+    <arg name="switching_on_time" default="5.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Two-car simulator -->
+    <!-- ========================================================= -->
+
+    <include file="$(find dart_simulator_pkg)/launch/two_cars_sim.launch"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Basic measurements -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/two_car_measurements.launch"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Leader velocity controller -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/v_ref_acc.launch">
+
+        <arg name="car_number" value="1"/>
+
+        <arg name="namespace" value="car1"/>
+
+    </include>
+
+
+    <!-- ========================================================= -->
+    <!-- Nine OCO-style sensor channels -->
+    -->
+    <!--
+        Even though this test does NOT use the OCO,
+        we still use the same measurement generator so that
+        test2 and test3 receive exactly the same sensor signals
+        and attacks.
+    -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/oco_measurements.launch">
+
+        <arg name="attack_enabled"
+             value="$(arg attack_enabled)"/>
+
+        <arg name="attack_type"
+             value="$(arg attack_type)"/>
+
+        <arg name="attack_channels"
+             value="$(arg attack_channels)"/>
+
+        <arg name="step_amplitude"
+             value="$(arg step_amplitude)"/>
+
+        <arg name="white_noise_std"
+             value="$(arg white_noise_std)"/>
+
+        <arg name="attack_start"
+             value="$(arg attack_start)"/>
+
+        <arg name="attack_stop"
+             value="$(arg attack_stop)"/>
+
+        <arg name="switching_period"
+             value="$(arg switching_period)"/>
+
+        <arg name="switching_on_time"
+             value="$(arg switching_on_time)"/>
+
+    </include>
+
+
+    <!-- ========================================================= -->
+    <!-- Insecure sensor fusion -->
+    -->
+    <!--
+        Paper-style insecure measurement handling:
+
+        e       = (y1 + y6 + y8) / 3
+        v2      = (y2 + y7 + y9) / 3
+        a2      = y3
+        delta_v = y4
+        a1      = y5
+
+        Output:
+        /car2/insecure_state_1
+    -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="insecure_sensor_fusion.py"
+          name="insecure_sensor_fusion"
+          output="screen">
+
+        <param name="y1_topic"
+               value="/car2/oco/y1"/>
+
+        <param name="y2_topic"
+               value="/car2/oco/y2"/>
+
+        <param name="y3_topic"
+               value="/car2/oco/y3"/>
+
+        <param name="y4_topic"
+               value="/car2/oco/y4"/>
+
+        <param name="y5_topic"
+               value="/car2/oco/y5"/>
+
+        <param name="y6_topic"
+               value="/car2/oco/y6"/>
+
+        <param name="y7_topic"
+               value="/car2/oco/y7"/>
+
+        <param name="y8_topic"
+               value="/car2/oco/y8"/>
+
+        <param name="y9_topic"
+               value="/car2/oco/y9"/>
+
+        <param name="state_topic"
+               value="/car2/insecure_state_1"/>
+
+        <param name="publish_rate"
+               value="10.0"/>
+
+    </node>
+
+
+    <!-- ========================================================= -->
+    <!-- CACC controller -->
+    -->
+    <!--
+        Same controller as test2.
+
+        The ONLY important difference is that state_topic is now:
+
+            /car2/insecure_state_1
+
+        instead of:
+
+            /car2/state_estimate_1
+    -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="cacc_controller.py"
+          name="cacc_controller_2"
+          output="screen">
+
+        <param name="state_topic"
+               value="/car2/insecure_state_1"/>
+
+        <param name="leader_acc_topic"
+               value="/car1/acc_saturated_1"/>
+
+        <param name="follower_acc_topic"
+               value="/car2/acc_saturated_1"/>
+
+        <param name="desired_acc_topic"
+               value="/car2/desired_acc_1"/>
+
+        <param name="enabled"
+               value="true"/>
+
+        <param name="Ts"
+               value="0.1"/>
+
+        <param name="h"
+               value="0.5"/>
+
+        <param name="tau"
+               value="0.1"/>
+
+        <param name="kp"
+               value="0.4"/>
+
+        <param name="kd"
+               value="0.8"/>
+
+        <param name="kdd"
+               value="0.1"/>
+
+        <param name="min_acc"
+               value="-0.5"/>
+
+        <param name="max_acc"
+               value="0.5"/>
+
+    </node>
+
+</launch>

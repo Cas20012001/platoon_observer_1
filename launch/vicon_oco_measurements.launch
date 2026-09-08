@@ -1,0 +1,137 @@
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- Vehicle configuration                                   -->
+    <!-- ========================================================= -->
+
+    <arg name="leader_number" default="1"/>
+    <arg name="follower_number" default="2"/>
+
+    <arg name="leader_vicon_topic"
+         default="/vicon/jetracer$(arg leader_number)"/>
+
+    <arg name="follower_vicon_topic"
+         default="/vicon/jetracer$(arg follower_number)"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Platoon parameters                                       -->
+    <!-- ========================================================= -->
+
+    <arg name="standstill_distance" default="1.0"/>
+    <arg name="headway" default="0.5"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Vicon derivative filtering                               -->
+    <!--                                                          -->
+    <!-- These are STARTING values only.                          -->
+    <!-- We will tune them from real measurements later.          -->
+    <!-- Set <= 0 to disable a filter.                            -->
+    <!-- ========================================================= -->
+
+    <arg name="velocity_cutoff_hz" default="3.0"/>
+    <arg name="acceleration_cutoff_hz" default="2.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- OCO/controller update rate                               -->
+    <!-- ========================================================= -->
+
+    <arg name="publish_rate" default="10.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Attack configuration                                     -->
+    <!-- ========================================================= -->
+
+    <arg name="attack_enabled" default="false"/>
+
+    <arg name="attack_type" default="none"/>
+
+    <arg name="attack_channels" default="[]"/>
+
+    <arg name="step_amplitude" default="0.0"/>
+
+    <arg name="white_noise_std" default="0.0"/>
+
+    <arg name="attack_start" default="0.0"/>
+
+    <arg name="attack_stop" default="-1.0"/>
+
+    <arg name="switching_period" default="4.0"/>
+
+    <arg name="switching_on_time" default="2.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- Vicon -> OCO measurement bridge                          -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="vicon_oco_measurements.py"
+          name="vicon_oco_measurements"
+          output="screen">
+
+        <param name="leader_number"
+               value="$(arg leader_number)"/>
+
+        <param name="follower_number"
+               value="$(arg follower_number)"/>
+
+
+        <param name="leader_vicon_topic"
+               value="$(arg leader_vicon_topic)"/>
+
+        <param name="follower_vicon_topic"
+               value="$(arg follower_vicon_topic)"/>
+
+
+        <param name="standstill_distance"
+               value="$(arg standstill_distance)"/>
+
+        <param name="headway"
+               value="$(arg headway)"/>
+
+
+        <param name="velocity_cutoff_hz"
+               value="$(arg velocity_cutoff_hz)"/>
+
+        <param name="acceleration_cutoff_hz"
+               value="$(arg acceleration_cutoff_hz)"/>
+
+        <param name="publish_rate"
+               value="$(arg publish_rate)"/>
+
+
+        <param name="attack_enabled"
+               value="$(arg attack_enabled)"/>
+
+        <param name="attack_type"
+               value="$(arg attack_type)"/>
+
+        <rosparam param="attack_channels">
+            $(arg attack_channels)
+        </rosparam>
+
+        <param name="step_amplitude"
+               value="$(arg step_amplitude)"/>
+
+        <param name="white_noise_std"
+               value="$(arg white_noise_std)"/>
+
+        <param name="attack_start"
+               value="$(arg attack_start)"/>
+
+        <param name="attack_stop"
+               value="$(arg attack_stop)"/>
+
+        <param name="switching_period"
+               value="$(arg switching_period)"/>
+
+        <param name="switching_on_time"
+               value="$(arg switching_on_time)"/>
+
+    </node>
+
+</launch>

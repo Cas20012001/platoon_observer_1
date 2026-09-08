@@ -1,0 +1,239 @@
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- TEST 2: FULL OCO + CACC SIMULATION                        -->
+    <!-- ========================================================= -->
+
+
+    <!-- ========================================================= -->
+    <!-- Attack simulation arguments                               -->
+    <!--                                                           -->
+    <!-- Default: NO ATTACK                                        -->
+    <!--                                                           -->
+    <!-- These arguments are passed through to                     -->
+    <!-- oco_measurements.launch.                                  -->
+    <!-- ========================================================= -->
+
+    <arg name="attack_enabled"
+         default="false"/>
+
+    <arg name="attack_type"
+         default="none"/>
+
+    <arg name="attack_channels"
+         default="[]"/>
+
+    <arg name="step_amplitude"
+         default="0.5"/>
+
+    <arg name="white_noise_std"
+         default="0.2"/>
+
+    <arg name="attack_start"
+         default="10.0"/>
+
+    <arg name="attack_stop"
+         default="-1.0"/>
+
+    <arg name="switching_period"
+         default="10.0"/>
+
+    <arg name="switching_on_time"
+         default="5.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- 1. Two-car DART simulator                                 -->
+    <!-- ========================================================= -->
+
+    <include file="$(find dart_simulator_pkg)/launch/two_cars_sim.launch"/>
+
+
+    <!-- ========================================================= -->
+    <!-- 2. Vicon velocity, spacing error and circle steering      -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/two_car_measurements.launch"/>
+
+
+    <!-- ========================================================= -->
+    <!-- 3. Leader velocity-reference controller                   -->
+    <!--                                                           -->
+    <!-- /car1/v_ref_1                                             -->
+    <!--        -> /car1/desired_acc_1                              -->
+    <!--                                                           -->
+    <!-- v_ref can still be published manually, e.g.:              -->
+    <!--                                                           -->
+    <!-- rostopic pub /car1/v_ref_1 std_msgs/Float32               -->
+    <!-- "data: 1.0" -r 10                                         -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/v_ref_acc.launch">
+
+        <arg name="car_number"
+             value="1"/>
+
+        <arg name="namespace"
+             value="car1"/>
+
+    </include>
+
+
+    <!-- ========================================================= -->
+    <!-- 4. Generate OCO sensor channels                           -->
+    <!--                                                           -->
+    <!-- Produces:                                                 -->
+    <!-- /car2/oco/y1                                              -->
+    <!-- /car2/oco/y2                                              -->
+    <!-- /car2/oco/y6                                              -->
+    <!-- /car2/oco/y7                                              -->
+    <!-- /car2/oco/y8                                              -->
+    <!-- /car2/oco/y9                                              -->
+    <!--                                                           -->
+    <!-- Attack arguments from test2.launch are passed through.    -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/oco_measurements.launch">
+
+        <arg name="attack_enabled"
+             value="$(arg attack_enabled)"/>
+
+        <arg name="attack_type"
+             value="$(arg attack_type)"/>
+
+        <arg name="attack_channels"
+             value="$(arg attack_channels)"/>
+
+        <arg name="step_amplitude"
+             value="$(arg step_amplitude)"/>
+
+        <arg name="white_noise_std"
+             value="$(arg white_noise_std)"/>
+
+        <arg name="attack_start"
+             value="$(arg attack_start)"/>
+
+        <arg name="attack_stop"
+             value="$(arg attack_stop)"/>
+
+        <arg name="switching_period"
+             value="$(arg switching_period)"/>
+
+        <arg name="switching_on_time"
+             value="$(arg switching_on_time)"/>
+
+    </include>
+
+
+    <!-- ========================================================= -->
+    <!-- 5. Full nine-observer OCO                                 -->
+    <!--                                                           -->
+    <!-- NOTE: filename intentionally currently contains typo:     -->
+    <!--                                                           -->
+    <!-- oco_nince_observers.launch                                -->
+    <!--                                                           -->
+    <!-- Selected OCO state estimate is published to:              -->
+    <!--                                                           -->
+    <!-- /car2/state_estimate_1                                    -->
+    <!--                                                           -->
+    <!-- State order:                                              -->
+    <!-- [e, v2, a2, delta_v, a1]                                  -->
+    <!-- ========================================================= -->
+
+    <include file="$(find platoon_observer)/launch/oco_nince_observers.launch">
+
+        <arg name="leader_acc_topic"
+             value="/car1/acc_saturated_1"/>
+
+        <arg name="follower_acc_topic"
+             value="/car2/acc_saturated_1"/>
+
+        <arg name="state_topic"
+             value="/car2/state_estimate_1"/>
+
+    </include>
+
+
+    <!-- ========================================================= -->
+    <!-- 6. Follower CACC controller                               -->
+    <!--                                                           -->
+    <!-- Same controller as before, but now its state estimate     -->
+    <!-- comes from the OCO.                                       -->
+    <!--                                                           -->
+    <!-- Input:                                                    -->
+    <!-- /car2/state_estimate_1                                    -->
+    <!--                                                           -->
+    <!-- Output:                                                   -->
+    <!-- /car2/desired_acc_1                                       -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="cacc_controller.py"
+          name="cacc_controller_2"
+          output="screen">
+
+        <!-- State estimate from OCO -->
+        <param name="state_topic"
+               value="/car2/state_estimate_1"/>
+
+        <!-- Known leader acceleration -->
+        <param name="leader_acc_topic"
+               value="/car1/acc_saturated_1"/>
+
+        <!-- Actual/saturated follower acceleration -->
+        <param name="follower_acc_topic"
+               value="/car2/acc_saturated_1"/>
+
+        <!-- Controller output -->
+        <param name="desired_acc_topic"
+               value="/car2/desired_acc_1"/>
+
+
+        <!-- ===================================================== -->
+        <!-- Model/controller parameters                           -->
+        <!-- ===================================================== -->
+
+        <param name="Ts"
+               type="double"
+               value="0.1"/>
+
+        <param name="h"
+               type="double"
+               value="0.5"/>
+
+        <param name="tau"
+               type="double"
+               value="0.1"/>
+
+
+        <!-- Current controller gains -->
+        <param name="kp"
+               type="double"
+               value="0.4"/>
+
+        <param name="kd"
+               type="double"
+               value="0.8"/>
+
+        <param name="kdd"
+               type="double"
+               value="0.1"/>
+
+
+        <!-- Acceleration limits -->
+        <param name="min_accel"
+               type="double"
+               value="-0.5"/>
+
+        <param name="max_accel"
+               type="double"
+               value="0.5"/>
+
+
+        <!-- Enable follower controller -->
+        <param name="enabled"
+               value="true"/>
+
+    </node>
+
+</launch>

@@ -35,22 +35,28 @@
 
 
     <!-- ========================================================= -->
-    <!-- OCO classification parameters                            -->
+    <!-- FINAL selected OCO estimate                              -->
+    <!--                                                          -->
+    <!-- Existing CACC controller can continue to subscribe here. -->
     <!-- ========================================================= -->
 
-    <!-- Magnifier from the paper -->
+    <arg name="state_topic"
+         default="/car2/state_estimate_1"/>
+
+
+    <!-- ========================================================= -->
+    <!-- OCO classifier parameters                                -->
+    <!-- ========================================================= -->
+
     <arg name="a_beta"
          default="1000.0"/>
 
-    <!-- Current simulation assumes no process-noise bound -->
     <arg name="Bw"
          default="0.0"/>
 
-    <!-- Current simulation assumes no measurement-noise bound -->
     <arg name="Bgamma"
          default="0.0"/>
 
-    <!-- Numerical denominator safeguard -->
     <arg name="beta_epsilon"
          default="1e-12"/>
 
@@ -64,7 +70,7 @@
 
 
     <!-- ========================================================= -->
-    <!-- Nine-observer OCO node                                   -->
+    <!-- Full OCO observer node                                   -->
     <!-- ========================================================= -->
 
     <node pkg="platoon_observer"
@@ -73,6 +79,7 @@
           output="screen">
 
         <param name="update_rate"
+               type="double"
                value="10.0"/>
 
         <param name="y1_topic"
@@ -99,20 +106,23 @@
         <param name="follower_acc_topic"
                value="$(arg follower_acc_topic)"/>
 
+        <param name="state_topic"
+               value="$(arg state_topic)"/>
+
         <param name="a_beta"
-	       type="double"
+               type="double"
                value="$(arg a_beta)"/>
 
         <param name="Bw"
-	       type="double"
+               type="double"
                value="$(arg Bw)"/>
 
         <param name="Bgamma"
-	       type="double"
+               type="double"
                value="$(arg Bgamma)"/>
 
         <param name="beta_epsilon"
-	       type="double"
+               type="double"
                value="$(arg beta_epsilon)"/>
 
         <param name="publish_individual_states"

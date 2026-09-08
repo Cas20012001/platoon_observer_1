@@ -19,22 +19,40 @@ class OCOMeasurementGenerator:
             "/car2/spacing_error_meas_1"
         )
 
+        # Follower longitudinal velocity
         self.velocity_topic = rospy.get_param(
             "~velocity_topic",
             "/car2/vx_1"
         )
 
+        # Leader longitudinal velocity
+        self.leader_velocity_topic = rospy.get_param(
+            "~leader_velocity_topic",
+            "/car1/vx_1"
+        )
+
         # ============================================================
         # Output topics
         #
-        # Paper:
-        # y1, y6, y8 = spacing/distance related
+        # Current implementation:
+        #
+        # y1, y6, y8 = spacing-error related
         # y2, y7, y9 = follower velocity related
+        # y3         = follower acceleration
+        # y4         = relative velocity v1 - v2
+        # y5         = leader acceleration
+        #
+        # Note:
+        # y3 and y5 are derived from the measured velocity signals
+        # using the ACTUAL elapsed time between velocity callbacks.
         # ============================================================
 
         self.publishers = {
             1: rospy.Publisher("/car2/oco/y1", Float32, queue_size=10),
             2: rospy.Publisher("/car2/oco/y2", Float32, queue_size=10),
+            3: rospy.Publisher("/car2/oco/y3", Float32, queue_size=10),
+            4: rospy.Publisher("/car2/oco/y4", Float32, queue_size=10),
+            5: rospy.Publisher("/car2/oco/y5", Float32, queue_size=10),
             6: rospy.Publisher("/car2/oco/y6", Float32, queue_size=10),
             7: rospy.Publisher("/car2/oco/y7", Float32, queue_size=10),
             8: rospy.Publisher("/car2/oco/y8", Float32, queue_size=10),
@@ -46,6 +64,13 @@ class OCOMeasurementGenerator:
         # ============================================================
 
         self.publish_rate = rospy.get_param("~publish_rate", 10.0)
+
+        # Minimum allowed dt for numerical differentiation.
+        # This only protects against duplicate/nearly simultaneous
+        # callbacks causing division by a very small number.
+        self.min_derivative_dt = float(
+            rospy.get_param("~min_derivative_dt", 1e-4)
+        )
 
         # ============================================================
         # Attack configuration
@@ -128,7 +153,21 @@ class OCOMeasurementGenerator:
         # ============================================================
 
         self.spacing_error = None
+
         self.velocity = None
+        self.leader_velocity = None
+
+        # Latest derived accelerations
+        self.follower_acceleration = None
+        self.leader_acceleration = None
+
+        # Previous velocity samples used for differentiation
+        self.prev_follower_velocity = None
+        self.prev_leader_velocity = None
+
+        # Time at which previous velocity samples arrived
+        self.prev_follower_velocity_time = None
+        self.prev_leader_velocity_time = None
 
         self.start_time = rospy.Time.now()
 
@@ -150,6 +189,13 @@ class OCOMeasurementGenerator:
             queue_size=10
         )
 
+        rospy.Subscriber(
+            self.leader_velocity_topic,
+            Float32,
+            self.leader_velocity_callback,
+            queue_size=10
+        )
+
         # ============================================================
         # Fixed-rate publishing
         # ============================================================
@@ -167,8 +213,13 @@ class OCOMeasurementGenerator:
         )
 
         rospy.loginfo(
-            "Velocity source: %s",
+            "Follower velocity source: %s",
             self.velocity_topic
+        )
+
+        rospy.loginfo(
+            "Leader velocity source: %s",
+            self.leader_velocity_topic
         )
 
         rospy.loginfo(
@@ -194,7 +245,72 @@ class OCOMeasurementGenerator:
         self.spacing_error = float(msg.data)
 
     def velocity_callback(self, msg):
-        self.velocity = float(msg.data)
+        """
+        Follower velocity callback.
+
+        Besides storing v2, derive the actual follower acceleration:
+
+            a2 = dv2 / dt
+
+        where dt is measured from the actual callback arrival times.
+        """
+
+        current_velocity = float(msg.data)
+        current_time = rospy.Time.now()
+
+        if (
+            self.prev_follower_velocity is not None
+            and self.prev_follower_velocity_time is not None
+        ):
+            dt = (
+                current_time - self.prev_follower_velocity_time
+            ).to_sec()
+
+            if dt >= self.min_derivative_dt:
+
+                self.follower_acceleration = (
+                    current_velocity
+                    - self.prev_follower_velocity
+                ) / dt
+
+        self.prev_follower_velocity = current_velocity
+        self.prev_follower_velocity_time = current_time
+
+        self.velocity = current_velocity
+
+    def leader_velocity_callback(self, msg):
+        """
+        Leader velocity callback.
+
+        Besides storing v1, derive the actual leader acceleration:
+
+            a1 = dv1 / dt
+
+        where dt is measured from the actual callback arrival times.
+        """
+
+        current_velocity = float(msg.data)
+        current_time = rospy.Time.now()
+
+        if (
+            self.prev_leader_velocity is not None
+            and self.prev_leader_velocity_time is not None
+        ):
+            dt = (
+                current_time - self.prev_leader_velocity_time
+            ).to_sec()
+
+            if dt >= self.min_derivative_dt:
+
+                self.leader_acceleration = (
+                    current_velocity
+                    - self.prev_leader_velocity
+                ) / dt
+
+        self.prev_leader_velocity = current_velocity
+        self.prev_leader_velocity_time = current_time
+
+        self.leader_velocity = current_velocity
 
     # ================================================================
     # Attack logic
@@ -320,11 +436,26 @@ class OCOMeasurementGenerator:
 
     def timer_callback(self, event):
 
-        # Wait until both source measurements have been received
+        # ------------------------------------------------------------
+        # Wait until all required source measurements are available.
+        #
+        # The acceleration signals need at least TWO velocity samples
+        # before their first valid derivative can be calculated.
+        # ------------------------------------------------------------
+
         if self.spacing_error is None:
             return
 
         if self.velocity is None:
+            return
+
+        if self.leader_velocity is None:
+            return
+
+        if self.follower_acceleration is None:
+            return
+
+        if self.leader_acceleration is None:
             return
 
         elapsed = (
@@ -335,16 +466,32 @@ class OCOMeasurementGenerator:
         # Construct clean measurements
         #
         # y1 = spacing error
-        # y2 = follower velocity
+        #
+        # y2 = follower velocity v2
+        #
+        # y3 = follower actual acceleration a2
+        #
+        # y4 = relative velocity
+        #      delta_v = v1 - v2
+        #
+        # y5 = leader actual acceleration a1
+        #
         # y6 = spacing error
         # y7 = follower velocity
         # y8 = spacing error
         # y9 = follower velocity
         # ============================================================
 
+        relative_velocity = (
+            self.leader_velocity - self.velocity
+        )
+
         clean_measurements = {
             1: self.spacing_error,
             2: self.velocity,
+            3: self.follower_acceleration,
+            4: relative_velocity,
+            5: self.leader_acceleration,
             6: self.spacing_error,
             7: self.velocity,
             8: self.spacing_error,

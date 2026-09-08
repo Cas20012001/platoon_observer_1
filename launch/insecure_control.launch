@@ -1,0 +1,99 @@
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- State fusion -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="insecure_sensor_fusion.py"
+          name="insecure_sensor_fusion"
+          output="screen">
+
+        <!-- Sensor channels -->
+        <param name="y1_topic" value="/car2/oco/y1"/>
+        <param name="y2_topic" value="/car2/oco/y2"/>
+        <param name="y3_topic" value="/car2/oco/y3"/>
+        <param name="y4_topic" value="/car2/oco/y4"/>
+        <param name="y5_topic" value="/car2/oco/y5"/>
+        <param name="y6_topic" value="/car2/oco/y6"/>
+        <param name="y7_topic" value="/car2/oco/y7"/>
+        <param name="y8_topic" value="/car2/oco/y8"/>
+        <param name="y9_topic" value="/car2/oco/y9"/>
+
+        <!-- Output -->
+        <param name="state_topic"
+               value="/car2/insecure_state_1"/>
+
+        <param name="publish_rate"
+               value="10.0"/>
+
+    </node>
+
+
+    <!-- ========================================================= -->
+    <!-- Existing CACC controller -->
+    <!-- ========================================================= -->
+
+    <node pkg="platoon_observer"
+          type="cacc_controller.py"
+          name="insecure_cacc_controller_2"
+          output="screen">
+
+        <!--
+            IMPORTANT:
+
+            Only this input differs from the OCO configuration.
+
+            OCO:
+                /car2/state_estimate_1
+
+            Insecure:
+                /car2/insecure_state_1
+        -->
+
+        <param name="state_topic"
+               value="/car2/insecure_state_1"/>
+
+        <!-- Leader/follower acceleration COMMANDS -->
+        <param name="leader_acc_topic"
+               value="/car1/acc_saturated_1"/>
+
+        <param name="follower_acc_topic"
+               value="/car2/acc_saturated_1"/>
+
+        <!-- Controller output -->
+        <param name="desired_acc_topic"
+               value="/car2/desired_acc_1"/>
+
+        <!-- Enable controller -->
+        <param name="enabled"
+               value="true"/>
+
+        <!-- Controller parameters -->
+        <param name="Ts"
+               value="0.1"/>
+
+        <param name="h"
+               value="0.5"/>
+
+        <param name="tau"
+               value="0.1"/>
+
+        <param name="kp"
+               value="0.4"/>
+
+        <param name="kd"
+               value="0.8"/>
+
+        <param name="kdd"
+               value="0.1"/>
+
+        <param name="min_acc"
+               value="-0.5"/>
+
+        <param name="max_acc"
+               value="0.5"/>
+
+    </node>
+
+</launch>
