@@ -110,8 +110,8 @@
         <param name="attack_type"
                value="$(arg attack_type)"/>
 
-        <rosparam param="attack_channels">
-            $(arg attack_channels)
+        <rosparam param="attack_channels" subst_value="true">
+              $(arg attack_channels)
         </rosparam>
 
         <param name="step_amplitude"
