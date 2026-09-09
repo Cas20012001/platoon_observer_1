@@ -1,14 +1,14 @@
 <launch>
 
     <!-- ========================================================= -->
-    <!-- Leader vehicle                                           -->
+    <!-- CAR CONFIGURATION                                        -->
     <!-- ========================================================= -->
 
     <arg name="car_number" default="2"/>
 
 
     <!-- ========================================================= -->
-    <!-- Vicon inputs                                             -->
+    <!-- VICON INPUTS                                             -->
     <!-- ========================================================= -->
 
     <arg name="vicon_topic"
@@ -19,7 +19,7 @@
 
 
     <!-- ========================================================= -->
-    <!-- Longitudinal velocity controller                         -->
+    <!-- LONGITUDINAL CONTROLLER                                  -->
     <!-- ========================================================= -->
 
     <arg name="v_ref_topic"
@@ -37,7 +37,7 @@
 
 
     <!-- ========================================================= -->
-    <!-- Lateral circle controller                                -->
+    <!-- LATERAL CONTROLLER                                       -->
     <!-- ========================================================= -->
 
     <arg name="steering_angle_topic"
@@ -48,10 +48,7 @@
 
     <arg name="radius" default="2.5"/>
 
-    <!--
-        +1 = counterclockwise
-        -1 = clockwise
-    -->
+    <!-- +1 = counterclockwise, -1 = clockwise -->
     <arg name="direction" default="1"/>
 
     <arg name="lookahead" default="0.6"/>
@@ -59,30 +56,65 @@
 
     <arg name="max_steering_angle" default="0.45"/>
 
-    <!-- Change to -1 if steering direction is reversed -->
     <arg name="steering_sign" default="1.0"/>
 
-    <!-- Vicon rigid-body orientation correction -->
     <arg name="yaw_offset" default="0.0"/>
 
-    <!-- Pose prediction / delay compensation -->
     <arg name="delay" default="0.165"/>
 
     <arg name="vicon_timeout" default="0.25"/>
 
 
     <!-- ========================================================= -->
-    <!-- Shared controller execution rate                         -->
+    <!-- EXECUTION                                                -->
     <!-- ========================================================= -->
 
     <arg name="control_rate" default="10.0"/>
 
 
     <!-- ========================================================= -->
+    <!-- SAFETY ENABLE                                            -->
+    <!--                                                         -->
+    <!-- Equivalent to:                                          -->
+    <!-- rostopic pub /safety_value std_msgs/Float32              -->
+    <!-- "data: 1.0" -r 10                                       -->
+    <!-- ========================================================= -->
+
+    <node
+        pkg="rostopic"
+        type="rostopic"
+        name="leader_safety_value_publisher"
+        output="screen"
+        args="pub /safety_value std_msgs/Float32 'data: 1.0' -r 10">
+    </node>
+
+
+    <!-- ========================================================= -->
+    <!-- LOW-LEVEL PHYSICAL RACECAR INTERFACE                     -->
+    <!--                                                         -->
+    <!-- /throttle_2 + /steering_2 + /safety_value                -->
+    <!--                     -> physical JetRacer                  -->
+    <!-- ========================================================= -->
+
+    <node
+        pkg="racecar_pkg"
+        type="racecar_universal.py"
+        name="racecar_$(arg car_number)"
+        output="screen"
+        required="true">
+
+        <env
+            name="car_number"
+            value="$(arg car_number)"/>
+
+    </node>
+
+
+    <!-- ========================================================= -->
     <!-- REAL LEADER VELOCITY CONTROLLER                          -->
     <!--                                                         -->
     <!-- /vicon_velocity_2 + /v_ref_2                             -->
-    <!--                  -> /desired_acc_2                        -->
+    <!--                     -> /desired_acc_2                     -->
     <!-- ========================================================= -->
 
     <node
@@ -132,11 +164,38 @@
 
 
     <!-- ========================================================= -->
+    <!-- DESIRED ACCELERATION -> THROTTLE                         -->
+    <!--                                                         -->
+    <!-- /desired_acc_2                                           -->
+    <!--       -> acc_2_throttle                                  -->
+    <!--       -> /throttle_2                                     -->
+    <!--       -> /acc_saturated_2                                -->
+    <!-- ========================================================= -->
+
+    <node
+        pkg="platooning_pkg"
+        type="acc_2_throttle.py"
+        name="acc_2_throttle_$(arg car_number)"
+        output="screen"
+        required="true">
+
+        <env
+            name="car_number"
+            value="$(arg car_number)"/>
+
+        <param
+            name="car_number"
+            value="$(arg car_number)"/>
+
+    </node>
+
+
+    <!-- ========================================================= -->
     <!-- REAL CIRCLE LATERAL CONTROLLER                           -->
     <!--                                                         -->
     <!-- /vicon/jetracer2                                        -->
     <!-- /vicon_velocity_2                                       -->
-    <!--          -> /steering_angle_2                            -->
+    <!--        -> /steering_angle_2                              -->
     <!-- ========================================================= -->
 
     <node
@@ -218,22 +277,21 @@
 
 
     <!-- ========================================================= -->
-    <!-- DESIRED ACCELERATION -> THROTTLE                         -->
+    <!-- STEERING ANGLE -> PHYSICAL STEERING COMMAND              -->
     <!--                                                         -->
-    <!-- /desired_acc_2                                           -->
-    <!--        -> acc_2_throttle                                 -->
-    <!--        -> /acc_saturated_2                               -->
-    <!--        -> /throttle_2                                    -->
+    <!-- /steering_angle_2                                       -->
+    <!--       -> steering_angle_2_command.py                     -->
+    <!--       -> /steering_2                                    -->
     <!-- ========================================================= -->
 
     <node
-        pkg="platooning_pkg"
-        type="acc_2_throttle.py"
-        name="acc_2_throttle_$(arg car_number)"
+        pkg="racecar_pkg"
+        type="steering_angle_2_command.py"
+        name="steering_angle_2_steer_control_node_$(arg car_number)"
         output="screen"
         required="true">
 
-        <param
+        <env
             name="car_number"
             value="$(arg car_number)"/>
 
