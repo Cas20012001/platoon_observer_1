@@ -25,7 +25,7 @@
         oco_follower_input_topic:=/acc_saturated_3
     -->
     <arg name="oco_follower_input_topic"
-         default="/desired_acc_3"/>
+         default="/acc_saturated_3"/>
 
 
     <!-- ============================================================
@@ -316,7 +316,6 @@
               oco_follower_input_topic:=/acc_saturated_3
          ============================================================ -->
 
-    <!--
     <node pkg="platooning_pkg"
           type="acc_2_throttle.py"
           name="acc_2_throttle_3"
@@ -326,7 +325,6 @@
              value="$(arg car_number)"/>
 
     </node>
-    -->
 
 
 </launch>
