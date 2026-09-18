@@ -1,0 +1,332 @@
+<launch>
+
+    <!-- ============================================================
+         REAL SECURE FOLLOWER - JETRACER 3
+         ============================================================ -->
+
+    <arg name="car_number" default="3"/>
+
+    <!-- Arduino -->
+    <arg name="serial_port" default="/dev/arduino"/>
+    <arg name="serial_baud" default="57600"/>
+
+    <!--
+        IMPORTANT:
+
+        For the first dry test, acc_2_throttle is DISABLED.
+
+        Therefore no /acc_saturated_3 exists yet.
+
+        The OCO still needs follower input u2, so temporarily use
+        /desired_acc_3 as the model input.
+
+        Later, when acc_2_throttle is enabled, launch with:
+
+        oco_follower_input_topic:=/acc_saturated_3
+    -->
+    <arg name="oco_follower_input_topic"
+         default="/desired_acc_3"/>
+
+
+    <!-- ============================================================
+         ARDUINO / SENSOR INTERFACE
+         ============================================================ -->
+
+    <node pkg="rosserial_python"
+          type="serial_node.py"
+          name="serial_node_3"
+          output="screen">
+
+        <param name="port"
+               value="$(arg serial_port)"/>
+
+        <param name="baud"
+               value="$(arg serial_baud)"/>
+
+    </node>
+
+
+    <node pkg="racecar_pkg"
+          type="publish_sensors_and_inputs_universal.py"
+          name="publish_sensors_and_inputs_universal_3"
+          output="screen">
+
+        <env name="car_number"
+             value="$(arg car_number)"/>
+
+    </node>
+
+
+    <!-- ============================================================
+         SAFETY HEARTBEAT
+         ============================================================ -->
+
+    <node pkg="rostopic"
+          type="rostopic"
+          name="safety_heartbeat_3"
+          args="pub -r 10 /safety_value std_msgs/Float32 1.0"
+          output="screen"/>
+
+
+    <!-- ============================================================
+         LOW-LEVEL JETRACER DRIVER
+         ============================================================ -->
+
+    <node pkg="racecar_pkg"
+          type="racecar_universal.py"
+          name="racecar_3"
+          output="screen">
+
+        <env name="car_number"
+             value="$(arg car_number)"/>
+
+    </node>
+
+
+    <!-- ============================================================
+         LATERAL CIRCLE CONTROLLER
+         ============================================================ -->
+
+    <node pkg="platoon_lateral_controller"
+          type="circle_lateral_controller_real.py"
+          name="circle_lateral_controller_real_3"
+          output="screen">
+
+        <param name="car_number"
+               value="$(arg car_number)"/>
+
+        <param name="center_x"
+               value="0.0"/>
+
+        <param name="center_y"
+               value="0.0"/>
+
+        <param name="radius"
+               value="2.5"/>
+
+        <param name="direction"
+               value="1"/>
+
+        <param name="lookahead"
+               value="0.6"/>
+
+        <param name="wheelbase"
+               value="0.175"/>
+
+        <param name="max_steering_angle"
+               value="0.45"/>
+
+        <param name="steering_sign"
+               value="1.0"/>
+
+        <param name="yaw_offset"
+               value="0.0"/>
+
+        <param name="delay"
+               value="0.165"/>
+
+        <param name="control_rate"
+               value="10.0"/>
+
+        <param name="vicon_timeout"
+               value="0.25"/>
+
+    </node>
+
+
+    <!-- ============================================================
+         STEERING ANGLE -> JETRACER STEERING COMMAND
+         ============================================================ -->
+
+    <node pkg="racecar_pkg"
+          type="steering_angle_2_command.py"
+          name="steering_angle_2_command_3"
+          output="screen">
+
+        <env name="car_number"
+             value="$(arg car_number)"/>
+
+    </node>
+
+
+    <!-- ============================================================
+         SECURE OCO OBSERVER
+         ============================================================ -->
+
+    <node pkg="platoon_observer_1"
+          type="oco_nine_observers.py"
+          name="oco_nine_observers_3"
+          output="screen">
+
+        <!-- Observer frequency -->
+        <param name="update_rate"
+               value="10.0"/>
+
+        <!-- Final selected OCO state -->
+        <param name="state_topic"
+               value="/state_estimate_3"/>
+
+
+        <!-- ========================================================
+             REAL OCO MEASUREMENTS FROM WSL
+             ======================================================== -->
+
+        <param name="y1_topic"
+               value="/oco/y1_3"/>
+
+        <param name="y2_topic"
+               value="/oco/y2_3"/>
+
+        <param name="y6_topic"
+               value="/oco/y6_3"/>
+
+        <param name="y7_topic"
+               value="/oco/y7_3"/>
+
+        <param name="y8_topic"
+               value="/oco/y8_3"/>
+
+        <param name="y9_topic"
+               value="/oco/y9_3"/>
+
+
+        <!-- ========================================================
+             KNOWN MODEL INPUTS
+
+             u1 = applied/saturated leader acceleration
+             u2 = follower command during dry test
+
+             Once acc_2_throttle is active:
+             u2 should become /acc_saturated_3
+             ======================================================== -->
+
+        <param name="leader_acc_topic"
+               value="/acc_saturated_2"/>
+
+        <param name="follower_acc_topic"
+               value="$(arg oco_follower_input_topic)"/>
+
+
+        <!-- OCO classification parameters -->
+        <param name="a_beta"
+               value="1000.0"/>
+
+        <param name="Bw"
+               value="0.0"/>
+
+        <param name="Bgamma"
+               value="0.0"/>
+
+        <param name="beta_epsilon"
+               value="1e-12"/>
+
+        <param name="publish_individual_states"
+               value="false"/>
+
+
+        <!--
+            These two diagnostic topics are hard-coded with old
+            simulation names inside oco_nine_observers.py.
+
+            Remap them without changing the Python code.
+        -->
+
+        <remap from="/car2/oco/eta"
+               to="/oco/eta_3"/>
+
+        <remap from="/car2/oco/beta"
+               to="/oco/beta_3"/>
+
+    </node>
+
+
+    <!-- ============================================================
+         CACC FOLLOWER CONTROLLER
+         ============================================================ -->
+
+    <node pkg="platoon_observer_1"
+          type="cacc_controller.py"
+          name="cacc_controller_3"
+          output="screen">
+
+        <!-- Model/controller parameters -->
+        <param name="Ts"
+               value="0.1"/>
+
+        <param name="h"
+               value="0.5"/>
+
+        <param name="tau"
+               value="0.1"/>
+
+        <param name="kp"
+               value="0.4"/>
+
+        <param name="kd"
+               value="0.8"/>
+
+        <param name="kdd"
+               value="0.1"/>
+
+        <!-- Keep simulation limits for first real test -->
+        <param name="min_acc"
+               value="-0.5"/>
+
+        <param name="max_acc"
+               value="0.5"/>
+
+        <!-- Must explicitly enable controller -->
+        <param name="enabled"
+               value="true"/>
+
+
+        <!-- Selected OCO state -->
+        <param name="state_topic"
+               value="/state_estimate_3"/>
+
+        <!-- Leader acceleration command -->
+        <param name="leader_acc_topic"
+               value="/acc_saturated_2"/>
+
+        <!--
+            Keep this as /acc_saturated_3.
+
+            During the current dry test this topic will not exist,
+            and the CACC code automatically falls back to its own
+            previous command.
+        -->
+        <param name="follower_acc_topic"
+               value="/acc_saturated_3"/>
+
+        <!-- Output we want to inspect before enabling throttle -->
+        <param name="desired_acc_topic"
+               value="/desired_acc_3"/>
+
+    </node>
+
+
+    <!-- ============================================================
+         LONGITUDINAL ACTUATION
+
+         DISABLED FOR FIRST OCO/CACC TEST.
+
+         When /desired_acc_3 looks correct:
+           1. Uncomment this node.
+           2. Use:
+              oco_follower_input_topic:=/acc_saturated_3
+         ============================================================ -->
+
+    <!--
+    <node pkg="platooning_pkg"
+          type="acc_2_throttle.py"
+          name="acc_2_throttle_3"
+          output="screen">
+
+        <env name="car_number"
+             value="$(arg car_number)"/>
+
+    </node>
+    -->
+
+
+</launch>

@@ -1,0 +1,152 @@
+<launch>
+
+    <!-- ========================================================= -->
+    <!-- VEHICLE CONFIGURATION                                    -->
+    <!-- ========================================================= -->
+
+    <arg name="leader_number" default="2"/>
+    <arg name="follower_number" default="3"/>
+
+
+    <!-- ========================================================= -->
+    <!-- OCO / SPACING PARAMETERS                                 -->
+    <!-- ========================================================= -->
+
+    <arg name="standstill_distance" default="1.0"/>
+    <arg name="time_headway" default="0.5"/>
+
+    <arg name="measurement_rate" default="10.0"/>
+
+    <arg name="velocity_cutoff" default="3.0"/>
+    <arg name="acceleration_cutoff" default="2.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- ATTACK CONFIGURATION                                     -->
+    <!-- ========================================================= -->
+
+    <arg name="attack_enabled" default="false"/>
+
+    <!--
+        Options:
+            none
+            white_noise
+            switching_white_noise
+            step
+            switching_step
+    -->
+    <arg name="attack_type" default="none"/>
+
+    <!-- Example: [1,2] -->
+    <arg name="attack_channels" default="[]"/>
+
+    <arg name="step_amplitude" default="1.0"/>
+    <arg name="white_noise_std" default="1.0"/>
+
+    <arg name="attack_start" default="10.0"/>
+    <arg name="attack_stop" default="-1.0"/>
+
+    <arg name="switching_period" default="10.0"/>
+    <arg name="switching_on_time" default="5.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- RAW VICON BRIDGE                                         -->
+    <!--                                                         -->
+    <!-- Equivalent to:                                          -->
+    <!-- roslaunch vicon_pkg jetracer_all_stream.launch           -->
+    <!--                                                         -->
+    <!-- Produces:                                                -->
+    <!-- /vicon/jetracer1                                        -->
+    <!-- /vicon/jetracer2                                        -->
+    <!-- /vicon/jetracer3 ...                                    -->
+    <!-- ========================================================= -->
+
+    <include file="$(find vicon_pkg)/launch/jetracer_all_stream.launch"/>
+
+
+    <!-- ========================================================= -->
+    <!-- VICON -> OCO MEASUREMENT GENERATOR                       -->
+    <!--                                                         -->
+    <!-- Uses leader 2 and follower 3 Vicon poses.                -->
+    <!--                                                         -->
+    <!-- Produces:                                                -->
+    <!-- /vicon_velocity_2                                       -->
+    <!-- /vicon_acceleration_2                                   -->
+    <!-- /vicon_velocity_3                                       -->
+    <!-- /vicon_acceleration_3                                   -->
+    <!-- /distance_meas_3                                        -->
+    <!-- /spacing_error_meas_3                                   -->
+    <!-- /relative_velocity_meas_3                               -->
+    <!-- /oco/y1_3 ... /oco/y9_3                                 -->
+    <!-- ========================================================= -->
+
+    <node
+        pkg="platoon_observer"
+        type="vicon_oco_measurements.py"
+        name="vicon_oco_measurements"
+        output="screen"
+        required="true">
+
+        <param name="leader_number"
+               value="$(arg leader_number)"/>
+
+        <param name="follower_number"
+               value="$(arg follower_number)"/>
+
+        <param name="leader_vicon_topic"
+               value="/vicon/jetracer$(arg leader_number)"/>
+
+        <param name="follower_vicon_topic"
+               value="/vicon/jetracer$(arg follower_number)"/>
+
+        <param name="standstill_distance"
+               value="$(arg standstill_distance)"/>
+
+        <param name="time_headway"
+               value="$(arg time_headway)"/>
+
+        <param name="measurement_rate"
+               value="$(arg measurement_rate)"/>
+
+        <param name="velocity_cutoff"
+               value="$(arg velocity_cutoff)"/>
+
+        <param name="acceleration_cutoff"
+               value="$(arg acceleration_cutoff)"/>
+
+
+        <!-- Attack parameters -->
+
+        <param name="attack_enabled"
+               value="$(arg attack_enabled)"/>
+
+        <param name="attack_type"
+               value="$(arg attack_type)"/>
+
+        <rosparam param="attack_channels"
+                  subst_value="true">
+            $(arg attack_channels)
+        </rosparam>
+
+        <param name="step_amplitude"
+               value="$(arg step_amplitude)"/>
+
+        <param name="white_noise_std"
+               value="$(arg white_noise_std)"/>
+
+        <param name="attack_start"
+               value="$(arg attack_start)"/>
+
+        <param name="attack_stop"
+               value="$(arg attack_stop)"/>
+
+        <param name="switching_period"
+               value="$(arg switching_period)"/>
+
+        <param name="switching_on_time"
+               value="$(arg switching_on_time)"/>
+
+    </node>
+
+</launch>
