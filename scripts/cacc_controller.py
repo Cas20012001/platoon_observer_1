@@ -14,7 +14,7 @@ class CACCController:
         self.tau = rospy.get_param("~tau", 0.1)
 
         # Initial estimated gains.
-        self.kp = rospy.get_param("~kp", 0.4)
+        self.kp = rospy.get_param("~kp", 1.0)
         self.kd = rospy.get_param("~kd", 0.8)
         self.kdd = rospy.get_param("~kdd", 0.1)
 
