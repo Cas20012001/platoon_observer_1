@@ -9,8 +9,8 @@
     <arg name="vicon_topic"
          default="/vicon/jetracer$(arg car_number)"/>
 
-    <arg name="vicon_velocity_topic"
-         default="/vicon_velocity_$(arg car_number)"/>
+    <arg name="velocity_topic"
+         default="/encoder_velocity_$(arg car_number)"/>
 
     <arg name="v_ref_topic"
          default="/v_ref_$(arg car_number)"/>
@@ -96,6 +96,7 @@
             name="car_number"
             value="$(arg car_number)"/>
 
+
     </node>
 
 
@@ -155,7 +156,7 @@
                value="$(arg car_number)"/>
 
         <param name="velocity_topic"
-               value="$(arg vicon_velocity_topic)"/>
+               value="$(arg velocity_topic)"/>
 
         <param name="v_ref_topic"
                value="$(arg v_ref_topic)"/>
@@ -227,7 +228,7 @@
                value="$(arg vicon_topic)"/>
 
         <param name="velocity_topic"
-               value="$(arg vicon_velocity_topic)"/>
+               value="$(arg velocity_topic)"/>
 
         <param name="steering_topic"
                value="$(arg steering_angle_topic)"/>
