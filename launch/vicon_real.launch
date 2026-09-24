@@ -17,8 +17,33 @@
 
     <arg name="measurement_rate" default="10.0"/>
 
+
+    <!-- ========================================================= -->
+    <!-- VICON FILTERING                                          -->
+    <!-- ========================================================= -->
+
     <arg name="velocity_cutoff" default="3.0"/>
     <arg name="acceleration_cutoff" default="2.0"/>
+
+
+    <!-- ========================================================= -->
+    <!-- ONBOARD SENSOR FILTERING                                 -->
+    <!--                                                         -->
+    <!-- /sensors_and_input_N:                                    -->
+    <!-- data[3] = IMU longitudinal acceleration                  -->
+    <!-- data[6] = encoder velocity                               -->
+    <!--                                                         -->
+    <!-- Both are filtered at 2 Hz.                               -->
+    <!-- IMU biases remain zero for now.                          -->
+    <!-- ========================================================= -->
+
+    <arg name="onboard_velocity_cutoff" default="2.0"/>
+    <arg name="onboard_acceleration_cutoff" default="2.0"/>
+
+    <arg name="leader_imu_bias" default="0.0"/>
+    <arg name="follower_imu_bias" default="0.0"/>
+
+    <arg name="sensor_timeout" default="0.25"/>
 
 
     <!-- ========================================================= -->
@@ -52,25 +77,23 @@
 
     <!-- ========================================================= -->
     <!-- RAW VICON BRIDGE                                         -->
-    <!--                                                         -->
-    <!-- Equivalent to:                                          -->
-    <!-- roslaunch vicon_pkg jetracer_all_stream.launch           -->
-    <!--                                                         -->
-    <!-- Produces:                                                -->
-    <!-- /vicon/jetracer1                                        -->
-    <!-- /vicon/jetracer2                                        -->
-    <!-- /vicon/jetracer3 ...                                    -->
     <!-- ========================================================= -->
 
     <include file="$(find vicon_pkg)/launch/jetracer_all_stream.launch"/>
 
 
     <!-- ========================================================= -->
-    <!-- VICON -> OCO MEASUREMENT GENERATOR                       -->
+    <!-- VICON + ONBOARD OCO MEASUREMENT GENERATOR                -->
     <!--                                                         -->
-    <!-- Uses leader 2 and follower 3 Vicon poses.                -->
+    <!-- Vicon inputs:                                            -->
+    <!-- /vicon/jetracer2                                        -->
+    <!-- /vicon/jetracer3                                        -->
     <!--                                                         -->
-    <!-- Produces:                                                -->
+    <!-- Onboard inputs:                                          -->
+    <!-- /sensors_and_input_2                                    -->
+    <!-- /sensors_and_input_3                                    -->
+    <!--                                                         -->
+    <!-- Existing Vicon outputs:                                  -->
     <!-- /vicon_velocity_2                                       -->
     <!-- /vicon_acceleration_2                                   -->
     <!-- /vicon_velocity_3                                       -->
@@ -79,6 +102,11 @@
     <!-- /spacing_error_meas_3                                   -->
     <!-- /relative_velocity_meas_3                               -->
     <!-- /oco/y1_3 ... /oco/y9_3                                 -->
+    <!--                                                         -->
+    <!-- New onboard/hybrid outputs:                              -->
+    <!-- /oco_onboard/y1_3 ... /oco_onboard/y9_3                 -->
+    <!--                                                         -->
+    <!-- The onboard bank still uses Vicon for distance only.     -->
     <!-- ========================================================= -->
 
     <node
@@ -88,11 +116,16 @@
         output="screen"
         required="true">
 
+        <!-- Vehicle configuration -->
+
         <param name="leader_number"
                value="$(arg leader_number)"/>
 
         <param name="follower_number"
                value="$(arg follower_number)"/>
+
+
+        <!-- Vicon inputs -->
 
         <param name="leader_vicon_topic"
                value="/vicon/jetracer$(arg leader_number)"/>
@@ -100,20 +133,53 @@
         <param name="follower_vicon_topic"
                value="/vicon/jetracer$(arg follower_number)"/>
 
+
+        <!-- Fundamental onboard sensor inputs -->
+
+        <param name="leader_sensor_topic"
+               value="/sensors_and_input_$(arg leader_number)"/>
+
+        <param name="follower_sensor_topic"
+               value="/sensors_and_input_$(arg follower_number)"/>
+
+
+        <!-- Platoon parameters -->
+
         <param name="standstill_distance"
                value="$(arg standstill_distance)"/>
 
-        <param name="time_headway"
+        <param name="headway"
                value="$(arg time_headway)"/>
 
-        <param name="measurement_rate"
+
+        <!-- Existing Vicon processing -->
+
+        <param name="publish_rate"
                value="$(arg measurement_rate)"/>
 
-        <param name="velocity_cutoff"
+        <param name="velocity_cutoff_hz"
                value="$(arg velocity_cutoff)"/>
 
-        <param name="acceleration_cutoff"
+        <param name="acceleration_cutoff_hz"
                value="$(arg acceleration_cutoff)"/>
+
+
+        <!-- Onboard sensor processing -->
+
+        <param name="onboard_velocity_cutoff_hz"
+               value="$(arg onboard_velocity_cutoff)"/>
+
+        <param name="onboard_acceleration_cutoff_hz"
+               value="$(arg onboard_acceleration_cutoff)"/>
+
+        <param name="leader_imu_bias"
+               value="$(arg leader_imu_bias)"/>
+
+        <param name="follower_imu_bias"
+               value="$(arg follower_imu_bias)"/>
+
+        <param name="sensor_timeout"
+               value="$(arg sensor_timeout)"/>
 
 
         <!-- Attack parameters -->
