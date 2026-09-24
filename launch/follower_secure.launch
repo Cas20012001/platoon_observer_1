@@ -5,7 +5,17 @@
          ============================================================ -->
 
     <arg name="car_number" default="3"/>
+    <!-- ============================================================
+         LONGITUDINAL OCO MEASUREMENT SOURCE
 
+         vicon   -> /oco/y*_3
+         onboard -> /oco_onboard/y*_3
+         ============================================================ -->
+
+    <arg name="measurement_source" default="vicon"/>
+
+    <arg name="oco_measurement_prefix"
+         default="$(eval '/oco_onboard' if arg('measurement_source') == 'onboard' else '/oco')"/>
     <!-- Arduino -->
     <arg name="serial_port" default="/dev/arduino"/>
     <arg name="serial_baud" default="57600"/>
@@ -168,26 +178,32 @@
 
 
         <!-- ========================================================
-             REAL OCO MEASUREMENTS FROM WSL
+             OCO MEASUREMENT BANK
+
+             measurement_source:=vicon
+                  -> /oco/y*_3
+
+             measurement_source:=onboard
+                  -> /oco_onboard/y*_3
              ======================================================== -->
 
         <param name="y1_topic"
-               value="/oco/y1_3"/>
+               value="$(arg oco_measurement_prefix)/y1_$(arg car_number)"/>
 
         <param name="y2_topic"
-               value="/oco/y2_3"/>
+               value="$(arg oco_measurement_prefix)/y2_$(arg car_number)"/>
 
         <param name="y6_topic"
-               value="/oco/y6_3"/>
+               value="$(arg oco_measurement_prefix)/y6_$(arg car_number)"/>
 
         <param name="y7_topic"
-               value="/oco/y7_3"/>
+               value="$(arg oco_measurement_prefix)/y7_$(arg car_number)"/>
 
         <param name="y8_topic"
-               value="/oco/y8_3"/>
+               value="$(arg oco_measurement_prefix)/y8_$(arg car_number)"/>
 
         <param name="y9_topic"
-               value="/oco/y9_3"/>
+               value="$(arg oco_measurement_prefix)/y9_$(arg car_number)"/>
 
 
         <!-- ========================================================
