@@ -260,7 +260,7 @@
                value="0.1"/>
 
         <param name="kp"
-               value="0.4"/>
+               value="1.0"/>
 
         <param name="kd"
                value="0.8"/>

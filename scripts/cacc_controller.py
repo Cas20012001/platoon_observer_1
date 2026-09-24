@@ -14,7 +14,7 @@ class CACCController:
         self.tau = rospy.get_param("~tau", 0.1)
 
         # Initial estimated gains.
-        self.kp = rospy.get_param("~kp", 1.0)
+        self.kp = rospy.get_param("~kp", 2.0)
         self.kd = rospy.get_param("~kd", 0.8)
         self.kdd = rospy.get_param("~kdd", 0.1)
 
@@ -141,6 +141,22 @@ class CACCController:
         ))
 
         self.last_command = u_next
+
+        print(
+            "e=", round(e_hat, 3),
+            "kp_e=", round(self.kp * e_hat, 3),
+            "dv=", round(delta_v_hat, 3),
+            "a2=", round(a2_hat, 3),
+            "edot=", round(e_dot_hat, 3),
+            "kd_edot=", round(self.kd * e_dot_hat, 3),
+            "a1=", round(a1_hat, 3),
+            "eddot=", round(e_ddot_hat, 3),
+            "kdd_eddot=", round(self.kdd * e_ddot_hat, 3),
+            "u1=", round(self.u1, 3),
+            "u2=", round(u2, 3),
+            "xi=", round(xi, 3),
+            "u_next=", round(u_next, 3)
+        )
 
         self.desired_acc_pub.publish(
             Float32(data=u_next)
