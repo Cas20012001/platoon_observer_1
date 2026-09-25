@@ -64,6 +64,9 @@
         <env name="car_number"
              value="$(arg car_number)"/>
 
+        <remap from="safety_value"
+             to="/safety_value_$(arg car_number)"/>
+
     </node>
 
 
@@ -71,11 +74,24 @@
          SAFETY HEARTBEAT
          ============================================================ -->
 
-    <node pkg="rostopic"
-          type="rostopic"
-          name="safety_heartbeat_3"
-          args="pub -r 10 /safety_value std_msgs/Float32 1.0"
-          output="screen"/>
+    <node pkg="platoon_observer"
+         type="encoder_safety_watchdog.py"
+         name="encoder_safety_watchdog_$(arg car_number)"
+         output="screen">
+
+         <param name="car_number"
+              value="$(arg car_number)"/>
+
+         <param name="max_speed"
+              value="1.5"/>
+
+         <param name="encoder_timeout"
+              value="0.25"/>
+
+         <param name="publish_rate"
+              value="20.0"/>
+
+    </node>
 
 
     <!-- ============================================================
@@ -89,6 +105,9 @@
 
         <env name="car_number"
              value="$(arg car_number)"/>
+
+        <remap from="safety_value"
+             to="/safety_value_$(arg car_number)"/>
 
     </node>
 
@@ -339,6 +358,9 @@
 
         <env name="car_number"
              value="$(arg car_number)"/>
+
+        <remap from="safety_value"
+             to="/safety_value_$(arg car_number)"/>
 
     </node>
 
