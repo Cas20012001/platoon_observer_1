@@ -11,8 +11,8 @@
     <!-- ========================================================= -->
     <!-- OCO / SPACING PARAMETERS                                 -->
     <!-- ========================================================= -->
-
-    <arg name="standstill_distance" default="1.0"/>
+    <!-- was 1.0 -->
+    <arg name="standstill_distance" default="1.5"/>
     <arg name="time_headway" default="0.5"/>
 
     <arg name="measurement_rate" default="10.0"/>

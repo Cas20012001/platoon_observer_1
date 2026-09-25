@@ -83,7 +83,7 @@
               value="$(arg car_number)"/>
 
          <param name="max_speed"
-              value="1.5"/>
+              value="2.0"/>
 
          <param name="encoder_timeout"
               value="0.25"/>
