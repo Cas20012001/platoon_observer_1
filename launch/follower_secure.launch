@@ -298,10 +298,10 @@
                value="1.0"/>
 
         <param name="kd"
-               value="0.8"/>
+               value="1.2"/>
 
         <param name="kdd"
-               value="0.1"/>
+               value="0.0"/>
 
         <!-- Keep simulation limits for first real test -->
         <param name="min_acc"
