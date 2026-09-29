@@ -244,165 +244,6 @@ class VehicleViconState:
         self.initialized = True
 
 
-# ====================================================================
-# ONBOARD SENSOR STATE
-# ====================================================================
-
-class OnboardSensorState:
-    """
-    Processes /sensors_and_input_N.
-
-    Expected layout:
-
-        data[3] = IMU longitudinal acceleration
-        data[6] = encoder velocity
-
-    Both signals receive a causal first-order LPF.
-
-    IMU bias subtraction is included but biases are currently
-    configured as zero from the launch file.
-    """
-
-    def __init__(
-        self,
-        velocity_cutoff_hz=2.0,
-        acceleration_cutoff_hz=2.0,
-        imu_bias=0.0
-    ):
-
-        self.velocity_cutoff_hz = velocity_cutoff_hz
-        self.acceleration_cutoff_hz = acceleration_cutoff_hz
-
-        self.imu_bias = imu_bias
-
-        self.velocity_raw = None
-        self.acceleration_raw = None
-
-        self.velocity = None
-        self.acceleration = None
-
-        self.previous_time = None
-
-        self.last_receive_time = None
-
-        self.initialized = False
-
-
-    @staticmethod
-    def low_pass(
-        new_value,
-        previous_value,
-        cutoff_hz,
-        dt
-    ):
-
-        if previous_value is None:
-            return new_value
-
-        if cutoff_hz <= 0.0:
-            return new_value
-
-        rc = 1.0 / (
-            2.0
-            * math.pi
-            * cutoff_hz
-        )
-
-        alpha = dt / (
-            rc + dt
-        )
-
-        return (
-            previous_value
-            + alpha
-            * (
-                new_value
-                - previous_value
-            )
-        )
-
-
-    def update(self, msg):
-
-        if len(msg.data) <= 6:
-            return False
-
-        now = rospy.Time.now().to_sec()
-
-        # ------------------------------------------------------------
-        # Extract raw measurements
-        # ------------------------------------------------------------
-
-        velocity_raw = float(
-            msg.data[6]
-        )
-
-        acceleration_raw = (
-            float(msg.data[3])
-            - self.imu_bias
-        )
-
-        self.velocity_raw = velocity_raw
-        self.acceleration_raw = acceleration_raw
-
-        # ------------------------------------------------------------
-        # First measurement
-        # ------------------------------------------------------------
-
-        if self.previous_time is None:
-
-            self.velocity = velocity_raw
-            self.acceleration = acceleration_raw
-
-            self.previous_time = now
-            self.last_receive_time = now
-
-            self.initialized = True
-
-            return True
-
-        # ------------------------------------------------------------
-        # Actual callback interval
-        # ------------------------------------------------------------
-
-        dt = (
-            now
-            - self.previous_time
-        )
-
-        self.previous_time = now
-        self.last_receive_time = now
-
-        # The Arduino/publisher operates around 10 Hz.
-        # Use 0.1 s if callback timing is clearly invalid.
-        if dt <= 0.0 or dt > 0.5:
-            dt = 0.1
-
-        # ------------------------------------------------------------
-        # Encoder 2 Hz LPF
-        # ------------------------------------------------------------
-
-        self.velocity = self.low_pass(
-            velocity_raw,
-            self.velocity,
-            self.velocity_cutoff_hz,
-            dt
-        )
-
-        # ------------------------------------------------------------
-        # IMU 2 Hz LPF
-        # ------------------------------------------------------------
-
-        self.acceleration = self.low_pass(
-            acceleration_raw,
-            self.acceleration,
-            self.acceleration_cutoff_hz,
-            dt
-        )
-
-        self.initialized = True
-
-        return True
 
 
 # ====================================================================
@@ -449,20 +290,39 @@ class ViconOCOMeasurements:
             )
         )
 
-        # ============================================================
-        # Onboard sensor topics
+         # ============================================================
+        # Conditioned onboard longitudinal measurement topics
+        #
+        # Filtering / acceleration derivation is performed locally
+        # on each JetRacer.
+        #
+        # WSL consumes these values directly without filtering.
         # ============================================================
 
-        self.leader_sensor_topic = rospy.get_param(
-            "~leader_sensor_topic",
-            "/sensors_and_input_{}".format(
+        self.leader_velocity_topic = rospy.get_param(
+            "~leader_velocity_topic",
+            "/encoder_velocity_{}".format(
                 self.leader_number
             )
         )
 
-        self.follower_sensor_topic = rospy.get_param(
-            "~follower_sensor_topic",
-            "/sensors_and_input_{}".format(
+        self.leader_acceleration_topic = rospy.get_param(
+            "~leader_acceleration_topic",
+            "/measured_acceleration_{}".format(
+                self.leader_number
+            )
+        )
+
+        self.follower_velocity_topic = rospy.get_param(
+            "~follower_velocity_topic",
+            "/encoder_velocity_{}".format(
+                self.follower_number
+            )
+        )
+
+        self.follower_acceleration_topic = rospy.get_param(
+            "~follower_acceleration_topic",
+            "/measured_acceleration_{}".format(
                 self.follower_number
             )
         )
@@ -503,38 +363,6 @@ class ViconOCOMeasurements:
             )
         )
 
-        # ============================================================
-        # Onboard filtering
-        # ============================================================
-
-        self.onboard_velocity_cutoff_hz = float(
-            rospy.get_param(
-                "~onboard_velocity_cutoff_hz",
-                2.0
-            )
-        )
-
-        self.onboard_acceleration_cutoff_hz = float(
-            rospy.get_param(
-                "~onboard_acceleration_cutoff_hz",
-                2.0
-            )
-        )
-
-        self.leader_imu_bias = float(
-            rospy.get_param(
-                "~leader_imu_bias",
-                0.0
-            )
-        )
-
-        self.follower_imu_bias = float(
-            rospy.get_param(
-                "~follower_imu_bias",
-                0.0
-            )
-        )
-
         self.sensor_timeout = float(
             rospy.get_param(
                 "~sensor_timeout",
@@ -568,20 +396,20 @@ class ViconOCOMeasurements:
         )
 
         # ============================================================
-        # Internal onboard states
+        # Latest conditioned onboard measurements
         # ============================================================
 
-        self.leader_onboard = OnboardSensorState(
-            self.onboard_velocity_cutoff_hz,
-            self.onboard_acceleration_cutoff_hz,
-            self.leader_imu_bias
-        )
+        self.leader_onboard_velocity = None
+        self.leader_onboard_acceleration = None
 
-        self.follower_onboard = OnboardSensorState(
-            self.onboard_velocity_cutoff_hz,
-            self.onboard_acceleration_cutoff_hz,
-            self.follower_imu_bias
-        )
+        self.follower_onboard_velocity = None
+        self.follower_onboard_acceleration = None
+
+        self.last_leader_velocity_receive_time = None
+        self.last_leader_acceleration_receive_time = None
+
+        self.last_follower_velocity_receive_time = None
+        self.last_follower_acceleration_receive_time = None
 
         # Vicon receive times used for validity/staleness checks
         self.last_leader_vicon_receive_time = None
@@ -786,16 +614,30 @@ class ViconOCOMeasurements:
         )
 
         rospy.Subscriber(
-            self.leader_sensor_topic,
-            Float32MultiArray,
-            self.leader_sensor_callback,
+            self.leader_velocity_topic,
+            Float32,
+            self.leader_velocity_callback,
             queue_size=1
         )
 
         rospy.Subscriber(
-            self.follower_sensor_topic,
-            Float32MultiArray,
-            self.follower_sensor_callback,
+            self.leader_acceleration_topic,
+            Float32,
+            self.leader_acceleration_callback,
+            queue_size=1
+        )
+
+        rospy.Subscriber(
+            self.follower_velocity_topic,
+            Float32,
+            self.follower_velocity_callback,
+            queue_size=1
+        )
+
+        rospy.Subscriber(
+            self.follower_acceleration_topic,
+            Float32,
+            self.follower_acceleration_callback,
             queue_size=1
         )
 
@@ -910,52 +752,61 @@ class ViconOCOMeasurements:
     # ONBOARD SENSOR CALLBACKS
     # ================================================================
 
-    def leader_sensor_callback(self, msg):
+    
 
-        success = self.leader_onboard.update(
-            msg
+
+    # ================================================================
+    # CONDITIONED ONBOARD MEASUREMENT CALLBACKS
+    # ================================================================
+
+    def leader_velocity_callback(self, msg):
+
+        self.leader_onboard_velocity = float(
+            msg.data
         )
 
-        if not success:
-
-            rospy.logwarn_throttle(
-                2.0,
-                "Leader /sensors_and_input_%d has insufficient data",
-                self.leader_number
-            )
-
-
-    def follower_sensor_callback(self, msg):
-        """
-        Follower sensor arrival is the trigger for the onboard/hybrid
-        OCO measurement bank.
-
-        This means there is no additional 10 Hz timer delay between
-        receiving follower data and publishing /oco_onboard/y1...y9.
-        """
-
-        success = self.follower_onboard.update(
-            msg
+        self.last_leader_velocity_receive_time = (
+            rospy.Time.now().to_sec()
         )
 
-        if not success:
 
-            rospy.logwarn_throttle(
-                2.0,
-                "Follower /sensors_and_input_%d has insufficient data",
-                self.follower_number
-            )
+    def leader_acceleration_callback(self, msg):
 
-            return
+        self.leader_onboard_acceleration = float(
+            msg.data
+        )
 
-        # Immediately attempt publication.
-        # If leader/Vicon data is not available yet, this simply returns.
+        self.last_leader_acceleration_receive_time = (
+            rospy.Time.now().to_sec()
+        )
+
+
+    def follower_velocity_callback(self, msg):
+
+        self.follower_onboard_velocity = float(
+            msg.data
+        )
+
+        self.last_follower_velocity_receive_time = (
+            rospy.Time.now().to_sec()
+        )
+
+
+    def follower_acceleration_callback(self, msg):
+
+        self.follower_onboard_acceleration = float(
+            msg.data
+        )
+
+        self.last_follower_acceleration_receive_time = (
+            rospy.Time.now().to_sec()
+        )
+
+        # Follower acceleration is published from the same local
+        # sensor callback that updates follower velocity.
+        #
+        # Use its arrival as the trigger for the onboard OCO bank.
         self.publish_onboard_measurements()
-
-
-    # ================================================================
-    # ATTACK FUNCTIONS
-    # ================================================================
 
     def attack_time_active(self, elapsed):
 
@@ -1145,65 +996,77 @@ class ViconOCOMeasurements:
 
         now = rospy.Time.now().to_sec()
 
-        # ------------------------------------------------------------
-        # Leader onboard data
-        # ------------------------------------------------------------
+        # ============================================================
+        # Make sure all four onboard measurements exist
+        # ============================================================
 
-        if not self.leader_onboard.initialized:
+        if self.leader_onboard_velocity is None:
+            rospy.logwarn_throttle(
+                2.0,
+                "Waiting for leader encoder velocity"
+            )
+            return False
+
+        if self.leader_onboard_acceleration is None:
+            rospy.logwarn_throttle(
+                2.0,
+                "Waiting for leader measured acceleration"
+            )
+            return False
+
+        if self.follower_onboard_velocity is None:
+            rospy.logwarn_throttle(
+                2.0,
+                "Waiting for follower encoder velocity"
+            )
+            return False
+
+        if self.follower_onboard_acceleration is None:
+            rospy.logwarn_throttle(
+                2.0,
+                "Waiting for follower measured acceleration"
+            )
+            return False
+
+        # ============================================================
+        # Make sure receive timestamps exist
+        # ============================================================
+
+        receive_times = [
+            self.last_leader_velocity_receive_time,
+            self.last_leader_acceleration_receive_time,
+            self.last_follower_velocity_receive_time,
+            self.last_follower_acceleration_receive_time
+        ]
+
+        if any(t is None for t in receive_times):
+            return False
+
+        # ============================================================
+        # Freshness of onboard measurements
+        # ============================================================
+
+        ages = [
+            now - self.last_leader_velocity_receive_time,
+            now - self.last_leader_acceleration_receive_time,
+            now - self.last_follower_velocity_receive_time,
+            now - self.last_follower_acceleration_receive_time
+        ]
+
+        if max(ages) > self.sensor_timeout:
 
             rospy.logwarn_throttle(
                 2.0,
-                "Waiting for leader onboard sensor data"
+                "Onboard longitudinal measurement stale; "
+                "maximum age %.3f s",
+                max(ages)
             )
 
             return False
 
-        if self.leader_onboard.last_receive_time is None:
-            return False
-
-        leader_age = (
-            now
-            - self.leader_onboard.last_receive_time
-        )
-
-        if leader_age > self.sensor_timeout:
-
-            rospy.logwarn_throttle(
-                2.0,
-                "Leader onboard sensor data stale: %.3f s",
-                leader_age
-            )
-
-            return False
-
-        # ------------------------------------------------------------
-        # Follower onboard data
-        # ------------------------------------------------------------
-
-        if not self.follower_onboard.initialized:
-            return False
-
-        if self.follower_onboard.last_receive_time is None:
-            return False
-
-        follower_age = (
-            now
-            - self.follower_onboard.last_receive_time
-        )
-
-        if follower_age > self.sensor_timeout:
-
-            rospy.logwarn_throttle(
-                2.0,
-                "Follower onboard sensor data stale: %.3f s",
-                follower_age
-            )
-
-            return False
-
-        # ------------------------------------------------------------
-        # Vicon distance
-        # ------------------------------------------------------------
+        # ============================================================
+        # Vicon is still required for inter-vehicle distance
+        # ============================================================
 
         if self.get_vicon_distance() is None:
 
@@ -1266,21 +1129,11 @@ class ViconOCOMeasurements:
         # FILTERED ONBOARD LONGITUDINAL MEASUREMENTS
         # ============================================================
 
-        v_leader = (
-            self.leader_onboard.velocity
-        )
+        v_leader = self.leader_onboard_velocity
+        a_leader = self.leader_onboard_acceleration
 
-        a_leader = (
-            self.leader_onboard.acceleration
-        )
-
-        v_follower = (
-            self.follower_onboard.velocity
-        )
-
-        a_follower = (
-            self.follower_onboard.acceleration
-        )
+        v_follower = self.follower_onboard_velocity
+        a_follower = self.follower_onboard_acceleration
 
         # ============================================================
         # DISTANCE REMAINS VICON-BASED FOR NOW

@@ -11,7 +11,7 @@
     <!-- ========================================================= -->
     <!-- OCO / SPACING PARAMETERS                                 -->
     <!-- ========================================================= -->
-
+    <!-- was 1.0 -->
     <arg name="standstill_distance" default="1.5"/>
     <arg name="time_headway" default="0.5"/>
 
@@ -20,8 +20,6 @@
 
     <!-- ========================================================= -->
     <!-- VICON FILTERING                                          -->
-    <!--                                                         -->
-    <!-- Only applies to the separate pure-Vicon measurement bank.-->
     <!-- ========================================================= -->
 
     <arg name="velocity_cutoff" default="3.0"/>
@@ -29,30 +27,21 @@
 
 
     <!-- ========================================================= -->
-    <!-- ONBOARD LONGITUDINAL MEASUREMENTS                        -->
+    <!-- ONBOARD SENSOR FILTERING                                 -->
     <!--                                                         -->
-    <!-- These are already conditioned on each JetRacer.          -->
+    <!-- /sensors_and_input_N:                                    -->
+    <!-- data[3] = IMU longitudinal acceleration                  -->
+    <!-- data[6] = encoder velocity                               -->
     <!--                                                         -->
-    <!-- Velocity:                                                -->
-    <!--   encoder -> 2 Hz LPF                                    -->
-    <!--                                                         -->
-    <!-- Acceleration:                                            -->
-    <!--   encoder -> 0.5 Hz LPF -> differentiation              -->
-    <!--                                                         -->
-    <!-- NO additional filtering is performed on WSL.            -->
+    <!-- Both are filtered at 2 Hz.                               -->
+    <!-- IMU biases remain zero for now.                          -->
     <!-- ========================================================= -->
 
-    <arg name="leader_velocity_topic"
-         default="/encoder_velocity_2"/>
+    <arg name="onboard_velocity_cutoff" default="2.0"/>
+    <arg name="onboard_acceleration_cutoff" default="2.0"/>
 
-    <arg name="leader_acceleration_topic"
-         default="/measured_acceleration_2"/>
-
-    <arg name="follower_velocity_topic"
-         default="/encoder_velocity_3"/>
-
-    <arg name="follower_acceleration_topic"
-         default="/measured_acceleration_3"/>
+    <arg name="leader_imu_bias" default="0.0"/>
+    <arg name="follower_imu_bias" default="0.0"/>
 
     <arg name="sensor_timeout" default="0.25"/>
 
@@ -73,6 +62,7 @@
     -->
     <arg name="attack_type" default="none"/>
 
+    <!-- Example: [1,2] -->
     <arg name="attack_channels" default="[]"/>
 
     <arg name="step_amplitude" default="1.0"/>
@@ -95,21 +85,26 @@
     <!-- ========================================================= -->
     <!-- VICON + ONBOARD OCO MEASUREMENT GENERATOR                -->
     <!--                                                         -->
-    <!-- Vicon:                                                   -->
+    <!-- Vicon inputs:                                            -->
     <!-- /vicon/jetracer2                                        -->
     <!-- /vicon/jetracer3                                        -->
     <!--                                                         -->
-    <!-- Conditioned onboard measurements:                        -->
-    <!-- /encoder_velocity_2                                     -->
-    <!-- /measured_acceleration_2                                -->
-    <!-- /encoder_velocity_3                                     -->
-    <!-- /measured_acceleration_3                                -->
+    <!-- Onboard inputs:                                          -->
+    <!-- /sensors_and_input_2                                    -->
+    <!-- /sensors_and_input_3                                    -->
     <!--                                                         -->
-    <!-- Pure Vicon bank:                                         -->
-    <!-- /oco/y1_3 ... /oco/y9_3                                -->
+    <!-- Existing Vicon outputs:                                  -->
+    <!-- /vicon_velocity_2                                       -->
+    <!-- /vicon_acceleration_2                                   -->
+    <!-- /vicon_velocity_3                                       -->
+    <!-- /vicon_acceleration_3                                   -->
+    <!-- /distance_meas_3                                        -->
+    <!-- /spacing_error_meas_3                                   -->
+    <!-- /relative_velocity_meas_3                               -->
+    <!-- /oco/y1_3 ... /oco/y9_3                                 -->
     <!--                                                         -->
-    <!-- Onboard/hybrid bank:                                     -->
-    <!-- /oco_onboard/y1_3 ... /oco_onboard/y9_3                -->
+    <!-- New onboard/hybrid outputs:                              -->
+    <!-- /oco_onboard/y1_3 ... /oco_onboard/y9_3                 -->
     <!--                                                         -->
     <!-- The onboard bank still uses Vicon for distance only.     -->
     <!-- ========================================================= -->
@@ -139,19 +134,13 @@
                value="/vicon/jetracer$(arg follower_number)"/>
 
 
-        <!-- Conditioned onboard longitudinal inputs -->
+        <!-- Fundamental onboard sensor inputs -->
 
-        <param name="leader_velocity_topic"
-               value="$(arg leader_velocity_topic)"/>
+        <param name="leader_sensor_topic"
+               value="/sensors_and_input_$(arg leader_number)"/>
 
-        <param name="leader_acceleration_topic"
-               value="$(arg leader_acceleration_topic)"/>
-
-        <param name="follower_velocity_topic"
-               value="$(arg follower_velocity_topic)"/>
-
-        <param name="follower_acceleration_topic"
-               value="$(arg follower_acceleration_topic)"/>
+        <param name="follower_sensor_topic"
+               value="/sensors_and_input_$(arg follower_number)"/>
 
 
         <!-- Platoon parameters -->
@@ -163,7 +152,7 @@
                value="$(arg time_headway)"/>
 
 
-        <!-- Pure-Vicon processing -->
+        <!-- Existing Vicon processing -->
 
         <param name="publish_rate"
                value="$(arg measurement_rate)"/>
@@ -175,7 +164,19 @@
                value="$(arg acceleration_cutoff)"/>
 
 
-        <!-- Freshness checks for onboard topics -->
+        <!-- Onboard sensor processing -->
+
+        <param name="onboard_velocity_cutoff_hz"
+               value="$(arg onboard_velocity_cutoff)"/>
+
+        <param name="onboard_acceleration_cutoff_hz"
+               value="$(arg onboard_acceleration_cutoff)"/>
+
+        <param name="leader_imu_bias"
+               value="$(arg leader_imu_bias)"/>
+
+        <param name="follower_imu_bias"
+               value="$(arg follower_imu_bias)"/>
 
         <param name="sensor_timeout"
                value="$(arg sensor_timeout)"/>
