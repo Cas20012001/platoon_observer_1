@@ -4,6 +4,8 @@
     <!-- LEADER CONFIGURATION                                     -->
     <!-- ========================================================= -->
 
+    <arg name="acc_throttle_topic" default="/throttle_2"/>
+
     <arg name="car_number" default="2"/>
 
     <arg name="vicon_topic"
@@ -219,6 +221,8 @@
 
         <remap from="safety_value"
             to="/safety_value_$(arg car_number)"/>
+
+        <remap from="/throttle_2" to="$(arg acc_throttle_topic)"/>
 
     </node>
 
