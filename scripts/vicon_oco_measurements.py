@@ -671,13 +671,23 @@ class ViconOCOMeasurements:
         )
 
         rospy.loginfo(
-            "Leader onboard sensors: %s",
-            self.leader_sensor_topic
+            "Leader encoder velocity: %s",
+            self.leader_velocity_topic
         )
 
         rospy.loginfo(
-            "Follower onboard sensors: %s",
-            self.follower_sensor_topic
+            "Leader measured acceleration: %s",
+            self.leader_acceleration_topic
+        )
+
+        rospy.loginfo(
+            "Follower encoder velocity: %s",
+            self.follower_velocity_topic
+        )
+
+        rospy.loginfo(
+            "Follower measured acceleration: %s",
+            self.follower_acceleration_topic
         )
 
         rospy.loginfo(
@@ -691,27 +701,7 @@ class ViconOCOMeasurements:
         )
 
         rospy.loginfo(
-            "Onboard encoder LPF: %.2f Hz",
-            self.onboard_velocity_cutoff_hz
-        )
-
-        rospy.loginfo(
-            "Onboard IMU LPF: %.2f Hz",
-            self.onboard_acceleration_cutoff_hz
-        )
-
-        rospy.loginfo(
-            "Leader IMU bias: %.3f m/s^2",
-            self.leader_imu_bias
-        )
-
-        rospy.loginfo(
-            "Follower IMU bias: %.3f m/s^2",
-            self.follower_imu_bias
-        )
-
-        rospy.loginfo(
-            "Sensor timeout: %.3f s",
+            "Onboard sensor timeout: %.3f s",
             self.sensor_timeout
         )
 
@@ -724,7 +714,6 @@ class ViconOCOMeasurements:
             "Attack channels: %s",
             str(self.attack_channels)
         )
-
 
     # ================================================================
     # VICON CALLBACKS
