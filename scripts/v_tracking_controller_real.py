@@ -69,7 +69,7 @@ class LeaderVelocityControllerReal:
 
         velocity_topic = rospy.get_param(
             "~velocity_topic",
-            "/vicon_velocity_" + self.car_number
+            "/encoder_velocity_" + self.car_number
         )
 
         v_ref_topic = rospy.get_param(
