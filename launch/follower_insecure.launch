@@ -255,10 +255,10 @@
                value="0.1"/>
 
         <param name="kp"
-               value="1.5"/>
+               value="1.0"/>
 
         <param name="kd"
-               value="1.0"/>
+               value="0.9"/>
 
         <param name="kdd"
                value="0.0"/>
