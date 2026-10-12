@@ -475,6 +475,12 @@ class ViconOCOMeasurements:
             queue_size=10
         )
 
+        self.attack_active_publisher = rospy.Publisher(
+            "/oco/attack_active",
+            Float32,
+            queue_size=10
+        )
+
         # ============================================================
         # Existing Vicon OCO measurement bank
         #
@@ -830,6 +836,27 @@ class ViconOCOMeasurements:
             < self.switching_on_time
         )
 
+
+    def attack_is_active(self, elapsed):
+
+        if not self.attack_enabled:
+            return False
+
+        if not self.attack_time_active(elapsed):
+            return False
+
+        attack_type = self.attack_type.lower()
+
+        if attack_type == "none":
+            return False
+
+        if attack_type in [
+            "switching_white_noise",
+            "switching_step"
+        ]:
+            return self.switching_active(elapsed)
+
+        return True
 
     def attack_offset(self, channel, elapsed):
         """
@@ -1324,6 +1351,11 @@ class ViconOCOMeasurements:
         elapsed = (
             time.monotonic()
             - self.start_time
+        )
+
+        self.publish_float(
+            self.attack_active_publisher,
+            1.0 if self.attack_is_active(elapsed) else 0.0
         )
 
         # ============================================================

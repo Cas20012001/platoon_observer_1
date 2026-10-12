@@ -200,6 +200,12 @@ class OCOMeasurementGenerator:
         # Fixed-rate publishing
         # ============================================================
 
+        self.attack_active_publisher = rospy.Publisher(
+            "/oco/attack_active",
+            Float32,
+            queue_size=10
+        )
+
         self.timer = rospy.Timer(
             rospy.Duration(1.0 / self.publish_rate),
             self.timer_callback
@@ -461,6 +467,27 @@ class OCOMeasurementGenerator:
         elapsed = (
             rospy.Time.now() - self.start_time
         ).to_sec()
+
+        # ============================================================
+        # Publish attack-active flag
+        # ============================================================
+
+        attack_active = False
+
+        if self.attack_enabled and self.attack_time_active(elapsed):
+
+            attack_type = self.attack_type.lower()
+
+            if attack_type in ["switching_white_noise", "switching_step"]:
+                attack_active = self.switching_active(elapsed)
+
+            elif attack_type != "none":
+                attack_active = True
+
+
+        self.attack_active_publisher.publish(
+            Float32(data=1.0 if attack_active else 0.0)
+        )
 
         # ============================================================
         # Construct clean measurements
